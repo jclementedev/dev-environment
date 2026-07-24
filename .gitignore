@@ -1,0 +1,32 @@
+# Archivos temporales
+*.swp
+*.swo
+*~
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de configuración local
+*.local
+.env
+.env.*
+
+# Directorios de caché
+.cache/
+.tmp/
+
+# Archivos de backup
+*.bak
+*.backup
+
+# Archivos de log
+*.log
+
+# Archivos de IDE
+.idea/
+.vscode/
+*.sublime-*
+
+# Cache y datos de herramientas de desarrollo
+.atl/
