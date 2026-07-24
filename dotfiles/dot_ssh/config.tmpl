@@ -1,0 +1,23 @@
+# SSH config — gestionado por chezmoi (~/.ssh/config).
+# Las claves SSH privadas van en ~/.ssh/; no se incluyen en el repositorio.
+# Los cambios van al repo en dotfiles/dot_ssh/config.tmpl.
+#
+# Identidad primaria: Host github.com con la clave SSH primaria.
+# Cuentas secundarias: incluidas mediante fragmentos en
+# ~/.ssh.d/accounts/*.ssh.config.
+
+# Fragmentos de configuración SSH de cuentas secundarias
+# gestionados por scripts/account.sh.
+Include ~/.ssh.d/accounts/*.ssh.config
+
+Host *
+    AddKeysToAgent yes
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+
+# Host primario de GitHub.
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile {{ .primary_ssh_key }}
+    IdentitiesOnly yes

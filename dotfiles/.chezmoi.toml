@@ -1,0 +1,3 @@
+[data]
+  # Primary SSH key basename (e.g. id_ed25519).
+  primary_ssh_key = "id_ed25519"

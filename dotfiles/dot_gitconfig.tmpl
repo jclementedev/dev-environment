@@ -1,0 +1,53 @@
+# ~/.gitconfig — gestionado por chezmoi.
+# Configuración común de Git. Los cambios deben realizarse en
+# dotfiles/dot_gitconfig.tmpl.
+#
+# La identidad principal se define en este archivo.
+# El enrutamiento de identidades secundarias se administra mediante
+# ~/.config/git/accounts-routing.gitconfig.
+
+[init]
+    defaultBranch = main
+
+[push]
+    default = current
+
+[pull]
+    ff = only
+
+[core]
+    editor = code --wait
+    excludesfile = ~/.config/git/ignore
+
+[diff]
+    tool = vscode
+
+[difftool]
+    prompt = false
+
+[difftool "vscode"]
+    cmd = code --wait --diff "$LOCAL" "$REMOTE"
+
+[merge]
+    tool = vscode
+
+[mergetool]
+    prompt = false
+    keepBackup = false
+
+[mergetool "vscode"]
+    cmd = code --wait --merge "$REMOTE" "$LOCAL" "$BASE" "$MERGED"
+
+[credential]
+    helper = cache
+
+# Identidad principal.
+[user]
+    name = {{ .git_user_name | quote }}
+    email = {{ .git_user_email | quote }}
+
+# Enrutamiento de identidades secundarias.
+# Debe permanecer después de [user] para permitir que las configuraciones
+# incluidas sobrescriban la identidad principal cuando corresponda.
+[include]
+    path = ~/.config/git/accounts-routing.gitconfig

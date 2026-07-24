@@ -1,0 +1,150 @@
+# ~/.zshrc — gestionado por chezmoi. No editar manualmente.
+# Los cambios deben realizarse en dotfiles/dot_zshrc.tmpl.
+
+# -----------------------------------------------------------------------------
+# PATH
+# -----------------------------------------------------------------------------
+
+typeset -U path PATH
+
+path=(
+  "$HOME/.local/bin"
+  "$HOME/.cargo/bin"
+  "$HOME/.local/share/fnm"
+  $path
+)
+
+export PATH
+
+# -----------------------------------------------------------------------------
+# Herramientas del shell
+# -----------------------------------------------------------------------------
+
+# fnm: gestiona versiones de Node.js y cambia automáticamente según
+# .node-version o .nvmrc cuando están presentes.
+if command -v fnm >/dev/null 2>&1; then
+  eval "$(fnm env --use-on-cd --shell zsh)"
+fi
+
+# fzf: atajos de teclado y completado difuso.
+if command -v fzf >/dev/null 2>&1; then
+  if fzf --zsh >/dev/null 2>&1; then
+    source <(fzf --zsh)
+  fi
+
+  if command -v bat >/dev/null 2>&1; then
+    _fzf_preview_cmd='bat --style=numbers --color=always --line-range :500'
+  elif command -v batcat >/dev/null 2>&1; then
+    _fzf_preview_cmd='batcat --style=numbers --color=always --line-range :500'
+  else
+    _fzf_preview_cmd='cat'
+  fi
+
+  export FZF_DEFAULT_COMMAND='rg --files --hidden --glob=!.git --glob=!node_modules --glob=!vendor --glob=!target 2>/dev/null'
+
+  export FZF_DEFAULT_OPTS="
+    --preview '${_fzf_preview_cmd} {} 2>/dev/null'
+    --preview-window=right:65%:wrap:border-left
+    --height=60%
+    --layout=reverse
+    --border=rounded
+  "
+
+  unset _fzf_preview_cmd
+fi
+
+# zoxide: navegación inteligente entre directorios.
+if command -v zoxide >/dev/null 2>&1; then
+  eval "$(zoxide init zsh)"
+fi
+
+# -----------------------------------------------------------------------------
+# Aliases
+# -----------------------------------------------------------------------------
+
+# Navegación y listado.
+if command -v eza >/dev/null 2>&1; then
+  alias ll='eza -lah --git --icons'
+  alias la='eza -a --git --icons'
+  alias l='eza --icons'
+  alias tree='eza --tree --icons'
+
+  llg()
+  {
+    eza -lah --git --icons | grep -E -- "$@"
+  }
+else
+  alias ll='ls -lah'
+  alias la='ls -A'
+  alias l='ls -CF'
+
+  llg()
+  {
+    ls -lah | grep -E -- "$@"
+  }
+fi
+
+# Git.
+alias gs='git status'
+alias gp='git pull'
+alias gd='git diff'
+alias gco='git checkout'
+alias gcb='git checkout -b'
+
+# Utilidades.
+alias diff='diff --color=auto'
+alias df='df -h'
+
+# Navegación al directorio anterior.
+alias -- -='cd -'
+
+# bat.
+if command -v bat >/dev/null 2>&1; then
+  export BAT_PAGER='less -RF'
+elif command -v batcat >/dev/null 2>&1; then
+  bat()
+  {
+    batcat "$@"
+  }
+
+  export BAT_PAGER='less -RF'
+fi
+
+# -----------------------------------------------------------------------------
+# Editor
+# -----------------------------------------------------------------------------
+
+if command -v code >/dev/null 2>&1; then
+  export EDITOR='code'
+  export VISUAL='code'
+else
+  export EDITOR='vi'
+  export VISUAL='vi'
+fi
+
+# -----------------------------------------------------------------------------
+# Keybindings
+# -----------------------------------------------------------------------------
+
+bindkey -v
+
+# -----------------------------------------------------------------------------
+# Prompt
+# -----------------------------------------------------------------------------
+
+if command -v starship >/dev/null 2>&1; then
+  eval "$(starship init zsh)"
+fi
+
+# -----------------------------------------------------------------------------
+# Plugins de Zsh
+# -----------------------------------------------------------------------------
+
+if [ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]; then
+  source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+fi
+
+# Debe cargarse al final para envolver correctamente los widgets de ZLE.
+if [ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
+  source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+fi

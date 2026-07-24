@@ -1,0 +1,36 @@
+# Global gitignore — gestionado por chezmoi (~/.config/git/ignore)
+
+# Archivos de editor / IDE
+
+*.swp
+*.swo
+*~
+
+.vscode/
+.idea/
+
+# Archivos de sistema
+
+.DS_Store
+Thumbs.db
+
+# Logs
+
+*.log
+
+# Python
+
+__pycache__/
+*.py[cod]
+
+.venv/
+venv/
+
+# Node.js
+
+node_modules/
+
+# Archivos temporales
+
+*.bak
+*.backup
