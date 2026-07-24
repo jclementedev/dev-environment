@@ -1,0 +1,4 @@
+[data]
+git_user_name = "Ada \"Quoted\"\nExample"
+git_user_email = "ada@example.test"
+primary_ssh_key = "/tmp/chezmoi-template-test/id_ed25519"
