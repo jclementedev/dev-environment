@@ -134,22 +134,40 @@ run_optional_bootstrap()
 
 install_components()
 {
+  # Entorno base
   run_required_bootstrap essentials
   run_required_bootstrap shell
   run_required_bootstrap chezmoi
 
+  # Runtimes y SDK
+  run_optional_bootstrap node
+  run_optional_bootstrap python
+  run_optional_bootstrap dotnet
+
+  # Utilidades de terminal
   run_optional_bootstrap ripgrep
   run_optional_bootstrap bat
   run_optional_bootstrap eza
   run_optional_bootstrap zoxide
   run_optional_bootstrap fzf
-  run_optional_bootstrap node
-  run_optional_bootstrap python
-  run_optional_bootstrap dotnet
+
+  # Contenedores, cloud e infraestructura
   run_optional_bootstrap docker
   run_optional_bootstrap aws
   run_optional_bootstrap terraform
+
+  # Análisis y validación
   run_optional_bootstrap dev-tools
+  run_optional_bootstrap actionlint
+  run_optional_bootstrap checkov
+  run_optional_bootstrap semgrep
+  run_optional_bootstrap markdownlint
+  run_optional_bootstrap hadolint
+
+  # Agentes de IA
+  run_optional_bootstrap opencode
+  run_optional_bootstrap pi
+  run_optional_bootstrap herdr
 }
 
 is_valid_email()
