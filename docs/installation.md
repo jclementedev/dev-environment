@@ -22,6 +22,47 @@ instalación de bootstrap y rechaza releases no soportadas con un error
 explícito. Si ve el rechazo y necesita soporte, abra un issue con la
 traza de `/etc/os-release`.
 
+## Estrategia de uso de versiones
+
+El entorno prepara capacidades transversales. Cada proyecto decide
+qué versiones exactas necesita y cómo aplica las herramientas.
+
+### Regla general
+
+Versiones recientes y estables por defecto. Se fija una versión únicamente
+cuando:
+
+- hay líneas de compatibilidad que administrar (runtimes, SDKs);
+- varios proyectos requieren versiones distintas;
+- existe incompatibilidad conocida con latest.
+
+### Quién decide qué versión
+
+Cada proyecto declara explícitamente:
+
+- **Versiones exactas**: `global.json` (`.NET`), `.nvmrc` (Node), `.python-version`,
+  `.terraform-version`.
+- **Reglas por linter**: `.hadolint.yaml`, `.shellcheckrc`, `.markdownlint.json`,
+  etc.
+
+El entorno prepara los ejecutables. El proyecto decide cómo los usa.
+
+### Categorías
+
+**Latest estable (sin pin):**
+
+- Linters y validadores: bats, shellcheck, shfmt, yamllint, actionlint,
+  hadolint, semgrep, checkov, markdownlint
+- Instaladores oficiales: opencode, herdr, aws, brew
+- Utilidades: ripgrep, fzf, bat, eza, zoxide, jq, yq, gh
+
+**Versionado por línea (gestionado por la herramienta):**
+
+- `.NET SDK` 8.0 y 10.0 (coexisten; cada proyecto usa `global.json`)
+- `Terraform` estable (cada proyecto usa `.terraform-version`)
+- `Node.js` LTS (cada proyecto usa `.nvmrc`)
+- `Python` del sistema (cada proyecto usa `.python-version`)
+
 ## Instalación base
 
 ### Automatizada
