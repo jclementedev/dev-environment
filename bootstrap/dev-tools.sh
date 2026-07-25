@@ -22,14 +22,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/pkg-manager.sh
 . "$SCRIPT_DIR/lib/pkg-manager.sh"
 
+readonly DEV_TOOLS=(
+  bats
+  shellcheck
+  shfmt
+)
+
 log_info "dev-tools: instalando herramientas de desarrollo"
 
-pkg_install \
-  bats \
-  shellcheck \
-  shfmt
+pkg_install "${DEV_TOOLS[@]}"
 
-for tool in bats shellcheck shfmt; do
+for tool in "${DEV_TOOLS[@]}"; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     die "dev-tools: $tool no quedó accesible tras la instalación"
   fi
