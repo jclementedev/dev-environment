@@ -26,6 +26,7 @@ readonly DEV_TOOLS=(
   bats
   shellcheck
   shfmt
+  yamllint
 )
 
 log_info "dev-tools: instalando herramientas de desarrollo"
