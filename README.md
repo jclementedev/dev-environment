@@ -1,14 +1,26 @@
 # dev-environment
 
-Entorno de desarrollo reproducible. Bootstrap + dotfiles + CI.
+Entorno de desarrollo reproducible con instalación, configuración y mantenimiento automatizados.
+
+## Plataformas soportadas
+
+| Plataforma           | Estado         | Notas                                                       |
+| -------------------- | -------------- | ----------------------------------------------------------- |
+| Ubuntu LTS           | ✅ Soportado   | Plataforma principal.                                       |
+| WSL2                 | ✅ Soportado   | Entorno recomendado para Windows.                           |
+| Windows (PowerShell) | 🚧 Planificado | Automatización de la configuración de aplicaciones nativas. |
+
+Consulta [`docs/installation.md`](docs/installation.md) para conocer los requisitos y las plataformas soportadas.
 
 ## Inicio rápido
+
+Instalación automática:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jclementedev/dev-environment/main/bootstrap.sh | bash
 ```
 
-O clonar manualmente:
+O clonar el repositorio manualmente:
 
 ```bash
 git clone https://github.com/jclementedev/dev-environment.git
@@ -18,8 +30,7 @@ cd dev-environment
 
 ### Shell de inicio de sesión
 
-`install.sh` configura Zsh automáticamente como shell de inicio. Si no puede
-hacerlo, ejecute:
+`install.sh` configura automáticamente Zsh como shell de inicio. Si no puede hacerlo, ejecute:
 
 ```bash
 chsh -s "$(command -v zsh)"
@@ -27,49 +38,84 @@ chsh -s "$(command -v zsh)"
 
 ## Estructura
 
-| Path | Uso |
-| ---- | --- |
-| `bootstrap/`       | scripts de instalación por herramienta |
-| `bootstrap/lib/`   | libs compartidas (log, os, pkg-manager, ssh) |
-| `dotfiles/`        | fuente chezmoi |
-| `scripts/`         | soporte: backup, restore, update, account |
-| `scripts/lib/`     | libs de scripts (github-accounts) |
-| `tests/`           | Pruebas Bats, datos de prueba y validación de plantillas de Chezmoi |
-| `docs/`            | documentación funcional |
-| `.github/`         | workflows CI |
-| `install.sh`       | orquestador: validate → bootstrap → chezmoi apply |
-| `bootstrap.sh`     | entry point con auto-clone y actualización del repositorio |
+| Ruta             | Descripción                                                                |
+| ---------------- | -------------------------------------------------------------------------- |
+| `bootstrap/`     | Scripts de instalación por herramienta.                                    |
+| `bootstrap/lib/` | Bibliotecas compartidas para los bootstraps.                               |
+| `dotfiles/`      | Fuente de Chezmoi.                                                         |
+| `scripts/`       | Scripts auxiliares del entorno.                                            |
+| `scripts/lib/`   | Bibliotecas compartidas para los scripts auxiliares.                       |
+| `tests/`         | Pruebas Bats, fixtures y validaciones.                                     |
+| `docs/`          | Documentación del proyecto.                                                |
+| `.github/`       | Workflows de CI.                                                           |
+| `install.sh`     | Orquestador principal de instalación.                                      |
+| `bootstrap.sh`   | Punto de entrada con clonación y actualización automática del repositorio. |
 
-## Comandos
-
-```bash
-bash scripts/update.sh                 # pull + apply
-bash scripts/backup.sh                 # snapshot de dotfiles
-bash scripts/restore.sh <snapshot>     # rollback
-bash scripts/account.sh setup-primary  # configurar GitHub después de instalar
-bash scripts/account.sh add <id> ...   # cuenta secundaria de GitHub
-```
-
-## Configurar identidad
-
-`install.sh` crea o completa `~/.config/chezmoi/chezmoi.toml` con
-`data.git_user_name`, `data.git_user_email` y `data.primary_ssh_key`, sin
-sobrescribir valores ni configuración existentes. Para configurar GitHub después
-de instalar, ejecutar `bash scripts/account.sh setup-primary`.
-
-## Multi-cuenta
+## Comandos principales
 
 ```bash
-bash scripts/account.sh add acme --name "Jane" --email "jane@acme.test" --github-login jane-acme \
-  --ssh-key ~/.ssh/id_acme --ssh-alias gh-acme --scope /srv/repos/acme
+bash scripts/update.sh                 # actualizar el entorno y reaplicar Chezmoi
+bash scripts/update-tools.sh           # actualizar las herramientas instaladas
+bash scripts/backup.sh                 # crear un snapshot de los dotfiles
+bash scripts/restore.sh <snapshot>     # restaurar un snapshot
+bash scripts/account.sh setup-primary  # configurar la cuenta principal de GitHub
+bash scripts/account.sh add <id> ...   # agregar una cuenta adicional de GitHub
 ```
 
-Ver [`docs/installation.md`](docs/installation.md) para el procedimiento completo.
+## Actualización
+
+### Actualizar el entorno
+
+Actualiza el repositorio y reaplica la configuración administrada por Chezmoi.
+
+```bash
+./scripts/update.sh
+```
+
+### Actualizar herramientas
+
+Actualiza las herramientas compatibles instaladas en `~/.local/bin`.
+
+```bash
+./scripts/update-tools.sh
+```
+
+Consulta [`docs/tools.md`](docs/tools.md) para conocer:
+
+- herramientas compatibles;
+- componentes excluidos;
+- política de versiones;
+- comportamiento ante fallos.
+
+## Configuración de GitHub
+
+Durante la instalación se crea (o completa) `~/.config/chezmoi/chezmoi.toml` sin sobrescribir la configuración existente.
+
+Para configurar la cuenta principal después de instalar:
+
+```bash
+bash scripts/account.sh setup-primary
+```
+
+## Agregar una cuenta adicional
+
+```bash
+bash scripts/account.sh add acme \
+  --name "Jane" \
+  --email "jane@acme.test" \
+  --github-login jane-acme \
+  --ssh-key ~/.ssh/id_acme \
+  --ssh-alias gh-acme \
+  --scope /srv/repos/acme
+```
+
+Consulta [`docs/installation.md`](docs/installation.md) para conocer el procedimiento completo.
 
 ## Ver también
 
-- [`docs/installation.md`](docs/installation.md) — instalación detallada
-- [`docs/security.md`](docs/security.md) — qué no va al repo
-- [`docs/architecture.md`](docs/architecture.md) — flujo de instalación
-- [`docs/troubleshooting.md`](docs/troubleshooting.md) — fallos comunes y remediación
-- [`docs/chezmoi-conventions.md`](docs/chezmoi-conventions.md) — convenciones de chezmoi
+- [`docs/installation.md`](docs/installation.md) — Instalación, requisitos y plataformas soportadas.
+- [`docs/tools.md`](docs/tools.md) — Gestión y actualización de herramientas.
+- [`docs/security.md`](docs/security.md) — Consideraciones de seguridad.
+- [`docs/architecture.md`](docs/architecture.md) — Arquitectura del entorno.
+- [`docs/troubleshooting.md`](docs/troubleshooting.md) — Problemas comunes y soluciones.
+- [`docs/chezmoi-conventions.md`](docs/chezmoi-conventions.md) — Convenciones utilizadas por Chezmoi.
