@@ -1,49 +1,131 @@
 #!/bin/bash
-# Instala chezmoi mediante su instalador oficial.
-# Idempotente: no reinstala si ya está disponible.
+# Instala o actualiza chezmoi mediante su instalador oficial.
 
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=lib/log.sh
 . "$SCRIPT_DIR/lib/log.sh"
 
-INSTALL_DIR="$HOME/.local/bin"
+readonly CHEZMOI_INSTALL_DIR="$HOME/.local/bin"
 
 case ":$PATH:" in
-  *":$INSTALL_DIR:"*) ;;
-  *) export PATH="$INSTALL_DIR:$PATH" ;;
+  *":$CHEZMOI_INSTALL_DIR:"*) ;;
+  *) export PATH="$CHEZMOI_INSTALL_DIR:$PATH" ;;
 esac
 
-if command -v chezmoi >/dev/null 2>&1; then
-  log_info "chezmoi: ya instalado ($(chezmoi --version))"
-  exit 0
-fi
+install_chezmoi()
+{
+  local installer_file
 
-if ! command -v curl >/dev/null 2>&1; then
-  die "chezmoi: requiere curl; ejecuta essentials.sh primero"
-fi
+  if command -v chezmoi >/dev/null 2>&1; then
+    log_info "chezmoi: ya instalado ($(chezmoi --version))"
+    return 0
+  fi
 
-installer_file="$(mktemp)"
-trap 'rm -f "$installer_file"' EXIT
+  if ! command -v curl >/dev/null 2>&1; then
+    die "chezmoi: requiere curl; ejecuta essentials.sh primero"
+  fi
 
-mkdir -p "$INSTALL_DIR"
+  if ! mkdir -p "$CHEZMOI_INSTALL_DIR"; then
+    die "chezmoi: no se pudo crear $CHEZMOI_INSTALL_DIR"
+  fi
 
-log_info "chezmoi: descargando instalador oficial"
+  if ! installer_file="$(mktemp)"; then
+    die "chezmoi: no se pudo crear el archivo temporal"
+  fi
 
-if ! curl -fsSL https://get.chezmoi.io -o "$installer_file"; then
-  die "chezmoi: no se pudo descargar el instalador oficial"
-fi
+  trap 'rm -f "$installer_file"' EXIT
 
-log_info "chezmoi: instalando"
+  log_info "chezmoi: descargando instalador oficial"
 
-if ! sh "$installer_file" -b "$INSTALL_DIR"; then
-  die "chezmoi: el instalador oficial falló"
-fi
+  if ! curl -fsSL \
+      --connect-timeout 10 \
+      --max-time 60 \
+      --retry 3 \
+      --retry-delay 2 \
+      --retry-connrefused \
+      https://get.chezmoi.io \
+      -o "$installer_file"; then
+    die "chezmoi: no se pudo descargar el instalador oficial"
+  fi
 
-if ! command -v chezmoi >/dev/null 2>&1; then
-  die "chezmoi: no quedó accesible tras la instalación"
-fi
+  log_info "chezmoi: instalando"
 
-log_info "chezmoi: listo ($(chezmoi --version))"
+  if ! sh "$installer_file" -b "$CHEZMOI_INSTALL_DIR"; then
+    die "chezmoi: el instalador oficial falló"
+  fi
+
+  if [ ! -x "$CHEZMOI_INSTALL_DIR/chezmoi" ]; then
+    die "chezmoi: el ejecutable no quedó instalado en $CHEZMOI_INSTALL_DIR"
+  fi
+
+  log_info "chezmoi: listo ($("$CHEZMOI_INSTALL_DIR/chezmoi" --version))"
+}
+
+update_chezmoi()
+{
+  local installer_file
+
+  if ! command -v curl >/dev/null 2>&1; then
+    log_error "chezmoi: requiere curl; ejecuta essentials.sh primero"
+    return 1
+  fi
+
+  if ! mkdir -p "$CHEZMOI_INSTALL_DIR"; then
+    log_error "chezmoi: no se pudo crear $CHEZMOI_INSTALL_DIR"
+    return 1
+  fi
+
+  if ! installer_file="$(mktemp)"; then
+    log_error "chezmoi: no se pudo crear el archivo temporal"
+    return 1
+  fi
+
+  trap 'rm -f "$installer_file"' EXIT
+
+  log_info "chezmoi: actualizando mediante el instalador oficial"
+
+  if ! curl -fsSL \
+      --connect-timeout 10 \
+      --max-time 60 \
+      --retry 3 \
+      --retry-delay 2 \
+      --retry-connrefused \
+      https://get.chezmoi.io \
+      -o "$installer_file"; then
+    log_error "chezmoi: no se pudo descargar el instalador oficial"
+    return 1
+  fi
+
+  if ! sh "$installer_file" -b "$CHEZMOI_INSTALL_DIR"; then
+    log_error "chezmoi: el instalador oficial falló"
+    return 1
+  fi
+
+  if [ ! -x "$CHEZMOI_INSTALL_DIR/chezmoi" ]; then
+    log_error "chezmoi: el ejecutable no quedó instalado en $CHEZMOI_INSTALL_DIR"
+    return 1
+  fi
+
+  log_info "chezmoi: listo ($("$CHEZMOI_INSTALL_DIR/chezmoi" --version))"
+}
+
+main()
+{
+  case "${1:-install}" in
+    install)
+      install_chezmoi
+      ;;
+    update)
+      update_chezmoi
+      ;;
+    *)
+      log_error "chezmoi: acción no soportada: $1"
+      exit 2
+      ;;
+  esac
+}
+
+main "$@"

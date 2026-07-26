@@ -1,9 +1,8 @@
 #!/bin/bash
-# Instala Checkov, linter de seguridad para infraestructura como código.
+# Instala o actualiza Checkov, linter de seguridad para infraestructura como código.
 # Usa pipx para mantener un entorno aislado.
-# Instala o actualiza Checkov a la última versión estable.
 
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -20,20 +19,65 @@ case ":$PATH:" in
   *) export PATH="$CHECKOV_INSTALL_DIR:$PATH" ;;
 esac
 
-if ! command -v pipx >/dev/null 2>&1; then
-  die "checkov: requiere pipx; ejecuta bootstrap/python.sh primero"
-fi
+require_pipx()
+{
+  command -v pipx >/dev/null 2>&1 \
+    || die "checkov: requiere pipx; ejecuta bootstrap/python.sh primero"
+}
 
-log_info "checkov: instalando o actualizando la última versión estable vía pipx"
+install_checkov()
+{
+  local installed_version
 
-if ! pipx install --upgrade checkov; then
-  die "checkov: la instalación o actualización mediante pipx falló"
-fi
+  require_pipx
 
-if [ ! -x "$CHECKOV_TARGET" ]; then
-  die "checkov: el ejecutable no quedó instalado en $CHECKOV_INSTALL_DIR"
-fi
+  log_info "checkov: instalando o actualizando la última versión estable vía pipx"
 
-installed_version="$("$CHECKOV_TARGET" --version 2>/dev/null || true)"
+  if ! pipx install --upgrade checkov; then
+    die "checkov: la instalación o actualización mediante pipx falló"
+  fi
 
-log_info "checkov: listo (${installed_version:-versión desconocida})"
+  if [ ! -x "$CHECKOV_TARGET" ]; then
+    die "checkov: el ejecutable no quedó instalado en $CHECKOV_INSTALL_DIR"
+  fi
+
+  installed_version="$("$CHECKOV_TARGET" --version 2>/dev/null || true)"
+
+  log_info "checkov: listo (${installed_version:-versión desconocida})"
+}
+
+update_checkov()
+{
+  local installed_version
+
+  require_pipx
+
+  log_info "checkov: actualizando la última versión estable vía pipx"
+
+  if ! pipx upgrade --install checkov; then
+    log_error "checkov: la actualización mediante pipx falló"
+    return 1
+  fi
+
+  installed_version="$("$CHECKOV_TARGET" --version 2>/dev/null || true)"
+
+  log_info "checkov: listo (${installed_version:-versión desconocida})"
+}
+
+main()
+{
+  case "${1:-install}" in
+    install)
+      install_checkov
+      ;;
+    update)
+      update_checkov
+      ;;
+    *)
+      log_error "checkov: acción no soportada: $1"
+      exit 2
+      ;;
+  esac
+}
+
+main "$@"

@@ -1,9 +1,8 @@
 #!/bin/bash
-# Instala Semgrep, analizador estático multilenguaje.
+# Instala o actualiza Semgrep, analizador estático multilenguaje.
 # Usa pipx para mantener un entorno aislado.
-# Instala o actualiza Semgrep a la última versión estable.
 
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -20,20 +19,65 @@ case ":$PATH:" in
   *) export PATH="$SEMGREP_INSTALL_DIR:$PATH" ;;
 esac
 
-if ! command -v pipx >/dev/null 2>&1; then
-  die "semgrep: requiere pipx; ejecuta bootstrap/python.sh primero"
-fi
+require_pipx()
+{
+  command -v pipx >/dev/null 2>&1 \
+    || die "semgrep: requiere pipx; ejecuta bootstrap/python.sh primero"
+}
 
-log_info "semgrep: instalando o actualizando la última versión estable vía pipx"
+install_semgrep()
+{
+  local installed_version
 
-if ! pipx install --upgrade semgrep; then
-  die "semgrep: la instalación o actualización mediante pipx falló"
-fi
+  require_pipx
 
-if [ ! -x "$SEMGREP_TARGET" ]; then
-  die "semgrep: el ejecutable no quedó instalado en $SEMGREP_INSTALL_DIR"
-fi
+  log_info "semgrep: instalando o actualizando la última versión estable vía pipx"
 
-installed_version="$("$SEMGREP_TARGET" --version 2>/dev/null || true)"
+  if ! pipx install --upgrade semgrep; then
+    die "semgrep: la instalación o actualización mediante pipx falló"
+  fi
 
-log_info "semgrep: listo (${installed_version:-versión desconocida})"
+  if [ ! -x "$SEMGREP_TARGET" ]; then
+    die "semgrep: el ejecutable no quedó instalado en $SEMGREP_INSTALL_DIR"
+  fi
+
+  installed_version="$("$SEMGREP_TARGET" --version 2>/dev/null || true)"
+
+  log_info "semgrep: listo (${installed_version:-versión desconocida})"
+}
+
+update_semgrep()
+{
+  local installed_version
+
+  require_pipx
+
+  log_info "semgrep: actualizando la última versión estable vía pipx"
+
+  if ! pipx upgrade --install semgrep; then
+    log_error "semgrep: la actualización mediante pipx falló"
+    return 1
+  fi
+
+  installed_version="$("$SEMGREP_TARGET" --version 2>/dev/null || true)"
+
+  log_info "semgrep: listo (${installed_version:-versión desconocida})"
+}
+
+main()
+{
+  case "${1:-install}" in
+    install)
+      install_semgrep
+      ;;
+    update)
+      update_semgrep
+      ;;
+    *)
+      log_error "semgrep: acción no soportada: $1"
+      exit 2
+      ;;
+  esac
+}
+
+main "$@"
