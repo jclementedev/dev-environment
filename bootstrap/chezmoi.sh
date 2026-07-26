@@ -83,8 +83,6 @@ update_chezmoi()
     return 1
   fi
 
-  trap 'rm -f "$installer_file"' EXIT
-
   log_info "chezmoi: actualizando mediante el instalador oficial"
 
   if ! curl -fsSL \
@@ -95,19 +93,24 @@ update_chezmoi()
       --retry-connrefused \
       https://get.chezmoi.io \
       -o "$installer_file"; then
+    rm -f -- "$installer_file"
     log_error "chezmoi: no se pudo descargar el instalador oficial"
     return 1
   fi
 
   if ! sh "$installer_file" -b "$CHEZMOI_INSTALL_DIR"; then
+    rm -f -- "$installer_file"
     log_error "chezmoi: el instalador oficial falló"
     return 1
   fi
 
   if [ ! -x "$CHEZMOI_INSTALL_DIR/chezmoi" ]; then
+    rm -f -- "$installer_file"
     log_error "chezmoi: el ejecutable no quedó instalado en $CHEZMOI_INSTALL_DIR"
     return 1
   fi
+
+  rm -f -- "$installer_file"
 
   log_info "chezmoi: listo ($("$CHEZMOI_INSTALL_DIR/chezmoi" --version))"
 }

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#
+# Stub para pipx.
+# Registra los argumentos recibidos y retorna un código configurable.
+
+set -eu
+
+printf '%q ' "$@" >>"${STUB_LOG:?STUB_LOG no definido}"
+printf '\n' >>"${STUB_LOG:?STUB_LOG no definido}"
+
+exit "${STUB_EXIT_CODE:-0}"
