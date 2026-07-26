@@ -60,6 +60,7 @@ teardown()
   [[ "$output" == *"markdownlint"* ]]
   [[ "$output" == *"pi"* ]]
   [[ "$output" == *"chezmoi"* ]]
+  [[ "$output" == *"aws"* ]]
 }
 
 @test "el resumen marca componentes fallidos" {
@@ -72,6 +73,7 @@ teardown()
   [[ "$output" == *"✗ apt"* ]]
   [[ "$output" == *"✗ actionlint"* ]]
   [[ "$output" == *"✗ chezmoi"* ]]
+  [[ "$output" == *"✗ aws"* ]]
 }
 
 @test "limpia los archivos temporales al finalizar" {

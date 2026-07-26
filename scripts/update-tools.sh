@@ -19,6 +19,7 @@ readonly -a UPDATABLE_COMPONENTS=(
   markdownlint
   pi
   chezmoi
+  aws
 )
 
 readonly REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

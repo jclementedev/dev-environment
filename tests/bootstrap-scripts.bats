@@ -17,6 +17,7 @@ UPDATABLE_COMPONENTS=(
   markdownlint
   pi
   chezmoi
+  aws
 )
 
 @test "bootstrap/ contiene scripts de instalación" {
