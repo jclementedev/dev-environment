@@ -1,6 +1,6 @@
 #!/bin/bash
 # Instala o actualiza Pi, agente IA para desarrollo.
-# Usa el paquete npm oficial y sigue la última versión estable.
+# Usa el instalador oficial del proveedor y conserva su destino por defecto.
 
 set -Eeuo pipefail
 
@@ -9,75 +9,115 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/log.sh
 . "$SCRIPT_DIR/lib/log.sh"
 
-readonly PI_PREFIX="$HOME/.local"
-readonly PI_INSTALL_DIR="$PI_PREFIX/bin"
-readonly PI_TARGET="$PI_INSTALL_DIR/pi"
+readonly PI_INSTALLER_URL="https://pi.dev/install.sh"
 
-case ":$PATH:" in
-  *":$PI_INSTALL_DIR:"*) ;;
-  *) export PATH="$PI_INSTALL_DIR:$PATH" ;;
-esac
-
-require_node()
+require_command()
 {
-  local dependency
+  local command_name="$1"
 
-  for dependency in node npm; do
-    command -v "$dependency" >/dev/null 2>&1 \
-      || die "pi: requiere $dependency; ejecuta bootstrap/node.sh primero"
-  done
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    log_error "pi: se requiere '$command_name'"
+    return 1
+  fi
+}
+
+get_pi_version()
+{
+  if ! command -v pi >/dev/null 2>&1; then
+    return 0
+  fi
+
+  pi --version 2>/dev/null || true
+}
+
+run_official_installer()
+{
+  require_command curl || return 1
+  require_command sh || return 1
+
+  log_info "pi: instalando la última versión estable"
+
+  if ! curl -fsSL \
+      --connect-timeout 10 \
+      --max-time 300 \
+      --retry 3 \
+      --retry-delay 2 \
+      --retry-connrefused \
+      "$PI_INSTALLER_URL" \
+    | sh; then
+    log_error "pi: el instalador oficial falló"
+    return 1
+  fi
+}
+
+validate_installation()
+{
+  local installed_version
+
+  if ! command -v pi >/dev/null 2>&1; then
+    log_error "pi: el binario no quedó accesible tras la instalación"
+    return 1
+  fi
+
+  installed_version="$(get_pi_version)"
+
+  if [ -z "$installed_version" ]; then
+    log_error "pi: no se pudo validar la versión instalada"
+    return 1
+  fi
 }
 
 install_pi()
 {
   local installed_version
 
-  require_node
+  if command -v pi >/dev/null 2>&1; then
+    installed_version="$(get_pi_version)"
 
-  log_info "pi: instalando o actualizando la última versión estable vía npm"
+    if [ -n "$installed_version" ]; then
+      log_info "pi: ya instalado ($installed_version)"
+      return 0
+    fi
 
-  if ! npm install \
-      --global \
-      --prefix "$PI_PREFIX" \
-      --ignore-scripts \
-      @earendil-works/pi-coding-agent@latest; then
-    die "pi: la instalación mediante npm falló"
+    log_info "pi: instalación existente no válida; se reinstalará"
   fi
 
-  if [ ! -x "$PI_TARGET" ]; then
-    die "pi: el ejecutable no quedó instalado en $PI_INSTALL_DIR"
-  fi
+  require_command node || return 1
+  require_command npm || return 1
 
-  installed_version="$("$PI_TARGET" --version 2>/dev/null || true)"
+  run_official_installer || return 1
+  validate_installation || return 1
 
-  log_info "pi: listo (${installed_version:-versión desconocida})"
+  log_info "pi: listo ($(get_pi_version))"
 }
 
 update_pi()
 {
   local installed_version
 
-  require_node
+  if ! command -v pi >/dev/null 2>&1; then
+    log_info "pi: no hay instalación previa; ejecutando instalación"
+    install_pi
+    return
+  fi
 
-  log_info "pi: actualizando la última versión estable vía npm"
+  installed_version="$(get_pi_version)"
 
-  if ! npm install \
-      --global \
-      --prefix "$PI_PREFIX" \
-      --ignore-scripts \
-      @earendil-works/pi-coding-agent@latest; then
-    log_error "pi: la actualización mediante npm falló"
+  if [ -z "$installed_version" ]; then
+    log_error "pi: la instalación existente no es válida"
     return 1
   fi
 
-  if [ ! -x "$PI_TARGET" ]; then
-    log_error "pi: el ejecutable no quedó instalado en $PI_INSTALL_DIR"
+  log_info "pi: actualizando ($installed_version)"
+
+  if ! pi update --self; then
+    log_error "pi: la actualización falló"
     return 1
   fi
 
-  installed_version="$("$PI_TARGET" --version 2>/dev/null || true)"
+  validate_installation || return 1
 
-  log_info "pi: listo (${installed_version:-versión desconocida})"
+  log_info "pi: actualizado ($installed_version → $(get_pi_version))"
 }
 
 main()
