@@ -61,6 +61,7 @@ teardown()
   [[ "$output" == *"pi"* ]]
   [[ "$output" == *"chezmoi"* ]]
   [[ "$output" == *"aws"* ]]
+  [[ "$output" == *"opencode"* ]]
 }
 
 @test "el resumen marca componentes fallidos" {
@@ -74,6 +75,7 @@ teardown()
   [[ "$output" == *"✗ actionlint"* ]]
   [[ "$output" == *"✗ chezmoi"* ]]
   [[ "$output" == *"✗ aws"* ]]
+  [[ "$output" == *"✗ opencode"* ]]
 }
 
 @test "limpia los archivos temporales al finalizar" {

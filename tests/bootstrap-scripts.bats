@@ -18,6 +18,7 @@ UPDATABLE_COMPONENTS=(
   pi
   chezmoi
   aws
+  opencode
 )
 
 @test "bootstrap/ contiene scripts de instalación" {

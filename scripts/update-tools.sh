@@ -20,6 +20,7 @@ readonly -a UPDATABLE_COMPONENTS=(
   pi
   chezmoi
   aws
+  opencode
 )
 
 readonly REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
