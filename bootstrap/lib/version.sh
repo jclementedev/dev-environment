@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # version.sh — utilidades puras de normalización y comparación de versiones.
 #
