@@ -19,6 +19,7 @@ UPDATABLE_COMPONENTS=(
   chezmoi
   aws
   opencode
+  herdr
 )
 
 @test "bootstrap/ contiene scripts de instalación" {

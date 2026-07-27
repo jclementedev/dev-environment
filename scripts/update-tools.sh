@@ -21,6 +21,7 @@ readonly -a UPDATABLE_COMPONENTS=(
   chezmoi
   aws
   opencode
+  herdr
 )
 
 readonly REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
