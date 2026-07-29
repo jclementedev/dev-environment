@@ -1,6 +1,6 @@
 #!/bin/bash
 # Instala o actualiza Pi, agente IA para desarrollo.
-# Usa el instalador oficial del proveedor y conserva su destino por defecto.
+# Usa el paquete npm oficial y el prefijo global predeterminado de npm.
 
 set -Eeuo pipefail
 
@@ -12,17 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/node-env.sh
 . "$SCRIPT_DIR/lib/node-env.sh"
 
-readonly PI_INSTALLER_URL="https://pi.dev/install.sh"
-
-require_command()
-{
-  local command_name="$1"
-
-  if ! command -v "$command_name" >/dev/null 2>&1; then
-    log_error "pi: se requiere '$command_name'"
-    return 1
-  fi
-}
+readonly PI_PACKAGE="@earendil-works/pi-coding-agent"
 
 get_pi_version()
 {
@@ -33,22 +23,13 @@ get_pi_version()
   pi --version 2>/dev/null || true
 }
 
-run_official_installer()
+install_package()
 {
-  require_command curl || return 1
-  require_command sh || return 1
-
-  log_info "pi: instalando la última versión estable"
-
-  if ! curl -fsSL \
-      --connect-timeout 10 \
-      --max-time 300 \
-      --retry 3 \
-      --retry-delay 2 \
-      --retry-connrefused \
-      "$PI_INSTALLER_URL" \
-    | sh; then
-    log_error "pi: el instalador oficial falló"
+  if ! npm install \
+      --global \
+      --ignore-scripts \
+      "$PI_PACKAGE"; then
+    log_error "pi: la operación mediante npm falló"
     return 1
   fi
 }
@@ -74,20 +55,19 @@ install_pi()
 {
   local installed_version
 
-  if command -v pi >/dev/null 2>&1; then
-    installed_version="$(get_pi_version)"
+  load_node_env \
+    || die "pi: requiere Node.js y npm; ejecuta bootstrap/node.sh primero"
 
-    if [ -n "$installed_version" ]; then
-      log_info "pi: ya instalado ($installed_version)"
-      return 0
-    fi
+  installed_version="$(get_pi_version)"
 
-    log_info "pi: instalación existente no válida; se reinstalará"
+  if [ -n "$installed_version" ]; then
+    log_info "pi: ya instalado ($installed_version)"
+    return 0
   fi
 
-  load_node_env || return 1
+  log_info "pi: instalando la última versión estable vía npm"
 
-  run_official_installer || return 1
+  install_package || return 1
   validate_installation || return 1
 
   log_info "pi: listo ($(get_pi_version))"
@@ -95,33 +75,30 @@ install_pi()
 
 update_pi()
 {
-  local installed_version
+  local previous_version
+  local current_version
 
-  if ! command -v pi >/dev/null 2>&1; then
+  load_node_env \
+    || die "pi: requiere Node.js y npm; ejecuta bootstrap/node.sh primero"
+
+  previous_version="$(get_pi_version)"
+
+  if [ -n "$previous_version" ]; then
+    log_info "pi: actualizando ($previous_version)"
+  else
     log_info "pi: no hay instalación previa; ejecutando instalación"
-    install_pi
-    return
   fi
 
-  installed_version="$(get_pi_version)"
-
-  if [ -z "$installed_version" ]; then
-    log_error "pi: la instalación existente no es válida"
-    return 1
-  fi
-
-  load_node_env || return 1
-
-  log_info "pi: actualizando ($installed_version)"
-
-  if ! pi update --self; then
-    log_error "pi: la actualización falló"
-    return 1
-  fi
-
+  install_package || return 1
   validate_installation || return 1
 
-  log_info "pi: actualizado ($installed_version → $(get_pi_version))"
+  current_version="$(get_pi_version)"
+
+  if [ -n "$previous_version" ]; then
+    log_info "pi: actualizado ($previous_version → $current_version)"
+  else
+    log_info "pi: listo ($current_version)"
+  fi
 }
 
 main()
