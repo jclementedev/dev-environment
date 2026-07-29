@@ -63,6 +63,7 @@ Los siguientes componentes no forman parte de `scripts/update-tools.sh`:
 | `node`     | Runtime administrado declarativamente por `bootstrap/node.sh` mediante `fnm`. Cambiar la versión estable requiere modificar el bootstrap. |
 | `python`   | Runtime administrado declarativamente por `bootstrap/python.sh`. Conserva la versión proporcionada por la distribución.                   |
 | `dotnet`   | SDK administrado declarativamente por `bootstrap/dotnet.sh`. La línea del SDK se define en el bootstrap.                                  |
+| `go`       | Runtime administrado declarativamente por `bootstrap/go.sh`. Conserva la versión proporcionada por la distribución.                     |
 
 Para cambiar la versión administrada por el repositorio:
 

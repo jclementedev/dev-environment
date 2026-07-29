@@ -144,6 +144,7 @@ install_components()
   run_optional_bootstrap node
   run_optional_bootstrap python
   run_optional_bootstrap dotnet
+  run_optional_bootstrap go
 
   # Utilidades de terminal
   run_optional_bootstrap ripgrep
