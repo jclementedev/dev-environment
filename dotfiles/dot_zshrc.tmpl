@@ -10,6 +10,7 @@ typeset -U path PATH
 path=(
   "$HOME/.local/bin"
   "$HOME/.cargo/bin"
+  "${XDG_DATA_HOME:-$HOME/.local/share}/fnm"
   $path
 )
 
