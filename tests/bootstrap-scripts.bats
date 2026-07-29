@@ -10,6 +10,7 @@ setup()
 }
 
 UPDATABLE_COMPONENTS=(
+  starship
   actionlint
   hadolint
   checkov

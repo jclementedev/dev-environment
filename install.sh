@@ -137,6 +137,7 @@ install_components()
   # Entorno base
   run_required_bootstrap essentials
   run_required_bootstrap shell
+  run_required_bootstrap starship
   run_required_bootstrap chezmoi
 
   # Runtimes y SDK
