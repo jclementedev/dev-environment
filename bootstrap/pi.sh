@@ -9,6 +9,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/log.sh
 . "$SCRIPT_DIR/lib/log.sh"
 
+# shellcheck source=lib/node-env.sh
+. "$SCRIPT_DIR/lib/node-env.sh"
+
 readonly PI_INSTALLER_URL="https://pi.dev/install.sh"
 
 require_command()
@@ -82,8 +85,7 @@ install_pi()
     log_info "pi: instalación existente no válida; se reinstalará"
   fi
 
-  require_command node || return 1
-  require_command npm || return 1
+  load_node_env || return 1
 
   run_official_installer || return 1
   validate_installation || return 1
@@ -107,6 +109,8 @@ update_pi()
     log_error "pi: la instalación existente no es válida"
     return 1
   fi
+
+  load_node_env || return 1
 
   log_info "pi: actualizando ($installed_version)"
 

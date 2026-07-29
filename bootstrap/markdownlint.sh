@@ -9,6 +9,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/log.sh
 . "$SCRIPT_DIR/lib/log.sh"
 
+# shellcheck source=lib/node-env.sh
+. "$SCRIPT_DIR/lib/node-env.sh"
+
 readonly MARKDOWNLINT_PREFIX="$HOME/.local"
 readonly MARKDOWNLINT_INSTALL_DIR="$MARKDOWNLINT_PREFIX/bin"
 readonly MARKDOWNLINT_TARGET="$MARKDOWNLINT_INSTALL_DIR/markdownlint-cli2"
@@ -18,17 +21,12 @@ case ":$PATH:" in
   *) export PATH="$MARKDOWNLINT_INSTALL_DIR:$PATH" ;;
 esac
 
-require_npm()
-{
-  command -v npm >/dev/null 2>&1 \
-    || die "markdownlint-cli2: requiere npm; ejecuta bootstrap/node.sh primero"
-}
-
 install_markdownlint()
 {
   local installed_version
 
-  require_npm
+  load_node_env \
+    || die "markdownlint-cli2: requiere Node.js y npm; ejecuta bootstrap/node.sh primero"
 
   log_info "markdownlint-cli2: instalando o actualizando la última versión estable vía npm"
 
@@ -53,7 +51,8 @@ update_markdownlint()
 {
   local installed_version
 
-  require_npm
+  load_node_env \
+    || die "markdownlint-cli2: requiere Node.js y npm; ejecuta bootstrap/node.sh primero"
 
   log_info "markdownlint-cli2: actualizando la última versión estable vía npm"
 
