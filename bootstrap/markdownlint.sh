@@ -1,6 +1,6 @@
 #!/bin/bash
 # Instala o actualiza markdownlint-cli2, linter para archivos Markdown.
-# Usa el paquete npm oficial en su última versión estable.
+# Usa el paquete npm oficial y el prefijo global predeterminado de npm.
 
 set -Eeuo pipefail
 
@@ -12,14 +12,44 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/node-env.sh
 . "$SCRIPT_DIR/lib/node-env.sh"
 
-readonly MARKDOWNLINT_PREFIX="$HOME/.local"
-readonly MARKDOWNLINT_INSTALL_DIR="$MARKDOWNLINT_PREFIX/bin"
-readonly MARKDOWNLINT_TARGET="$MARKDOWNLINT_INSTALL_DIR/markdownlint-cli2"
+readonly MARKDOWNLINT_PACKAGE="markdownlint-cli2"
 
-case ":$PATH:" in
-  *":$MARKDOWNLINT_INSTALL_DIR:"*) ;;
-  *) export PATH="$MARKDOWNLINT_INSTALL_DIR:$PATH" ;;
-esac
+get_markdownlint_version()
+{
+  if ! command -v markdownlint-cli2 >/dev/null 2>&1; then
+    return 0
+  fi
+
+  markdownlint-cli2 --version 2>/dev/null || true
+}
+
+install_package()
+{
+  if ! npm install \
+      --global \
+      --ignore-scripts \
+      "$MARKDOWNLINT_PACKAGE"; then
+    log_error "markdownlint-cli2: la operación mediante npm falló"
+    return 1
+  fi
+}
+
+validate_installation()
+{
+  local installed_version
+
+  if ! command -v markdownlint-cli2 >/dev/null 2>&1; then
+    log_error "markdownlint-cli2: el ejecutable no quedó accesible tras la instalación"
+    return 1
+  fi
+
+  installed_version="$(get_markdownlint_version)"
+
+  if [ -z "$installed_version" ]; then
+    log_error "markdownlint-cli2: no se pudo validar la versión instalada"
+    return 1
+  fi
+}
 
 install_markdownlint()
 {
@@ -28,51 +58,47 @@ install_markdownlint()
   load_node_env \
     || die "markdownlint-cli2: requiere Node.js y npm; ejecuta bootstrap/node.sh primero"
 
-  log_info "markdownlint-cli2: instalando o actualizando la última versión estable vía npm"
+  installed_version="$(get_markdownlint_version)"
 
-  if ! npm install \
-      --global \
-      --prefix "$MARKDOWNLINT_PREFIX" \
-      --ignore-scripts \
-      markdownlint-cli2@latest; then
-    die "markdownlint-cli2: la instalación mediante npm falló"
+  if [ -n "$installed_version" ]; then
+    log_info "markdownlint-cli2: ya instalado ($installed_version)"
+    return 0
   fi
 
-  if [ ! -x "$MARKDOWNLINT_TARGET" ]; then
-    die "markdownlint-cli2: el ejecutable no quedó instalado en $MARKDOWNLINT_INSTALL_DIR"
-  fi
+  log_info "markdownlint-cli2: instalando la última versión estable vía npm"
 
-  installed_version="$("$MARKDOWNLINT_TARGET" --version 2>/dev/null || true)"
+  install_package || return 1
+  validate_installation || return 1
 
-  log_info "markdownlint-cli2: listo (${installed_version:-versión desconocida})"
+  log_info "markdownlint-cli2: listo ($(get_markdownlint_version))"
 }
 
 update_markdownlint()
 {
-  local installed_version
+  local previous_version
+  local current_version
 
   load_node_env \
     || die "markdownlint-cli2: requiere Node.js y npm; ejecuta bootstrap/node.sh primero"
 
-  log_info "markdownlint-cli2: actualizando la última versión estable vía npm"
+  previous_version="$(get_markdownlint_version)"
 
-  if ! npm install \
-      --global \
-      --prefix "$MARKDOWNLINT_PREFIX" \
-      --ignore-scripts \
-      markdownlint-cli2@latest; then
-    log_error "markdownlint-cli2: la actualización mediante npm falló"
-    return 1
+  if [ -n "$previous_version" ]; then
+    log_info "markdownlint-cli2: actualizando ($previous_version)"
+  else
+    log_info "markdownlint-cli2: no hay instalación previa; ejecutando instalación"
   fi
 
-  if [ ! -x "$MARKDOWNLINT_TARGET" ]; then
-    log_error "markdownlint-cli2: el ejecutable no quedó instalado en $MARKDOWNLINT_INSTALL_DIR"
-    return 1
+  install_package || return 1
+  validate_installation || return 1
+
+  current_version="$(get_markdownlint_version)"
+
+  if [ -n "$previous_version" ]; then
+    log_info "markdownlint-cli2: actualizado ($previous_version → $current_version)"
+  else
+    log_info "markdownlint-cli2: listo ($current_version)"
   fi
-
-  installed_version="$("$MARKDOWNLINT_TARGET" --version 2>/dev/null || true)"
-
-  log_info "markdownlint-cli2: listo (${installed_version:-versión desconocida})"
 }
 
 main()
