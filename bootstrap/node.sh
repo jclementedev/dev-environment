@@ -1,5 +1,5 @@
 #!/bin/bash
-# Instala fnm y la versión LTS de Node.js.
+# Instala fnm, la versión LTS de Node.js, npm y pnpm.
 # La configuración persistente del shell se administra mediante Chezmoi.
 
 set -euo pipefail
@@ -33,7 +33,9 @@ if ! command -v fnm >/dev/null 2>&1; then
 fi
 
 # Configura fnm únicamente para esta ejecución de Bash.
-eval "$(fnm env --shell bash)"
+if ! eval "$(fnm env --shell bash)"; then
+  die "node: no se pudo inicializar el entorno de fnm"
+fi
 
 log_info "node: instalando la versión LTS"
 
@@ -47,4 +49,23 @@ for tool in node npm; do
   fi
 done
 
-log_info "node: listo ($(node --version), npm $(npm --version))"
+log_info "node: actualizando npm a la última versión estable"
+
+if ! npm install --global npm@latest; then
+  die "node: no se pudo actualizar npm"
+fi
+
+log_info "node: instalando pnpm 11"
+
+if ! npm install --global pnpm@latest-11; then
+  die "node: no se pudo instalar pnpm"
+fi
+
+for tool in node npm pnpm; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    die "node: $tool no quedó accesible tras la instalación"
+  fi
+done
+
+log_info \
+  "node: listo ($(node --version), npm $(npm --version), pnpm $(pnpm --version))"
