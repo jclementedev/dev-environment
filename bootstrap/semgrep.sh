@@ -33,7 +33,7 @@ install_semgrep()
 
   log_info "semgrep: instalando o actualizando la última versión estable vía pipx"
 
-  if ! pipx install --upgrade semgrep; then
+  if ! pipx install semgrep; then
     die "semgrep: la instalación o actualización mediante pipx falló"
   fi
 
@@ -54,7 +54,7 @@ update_semgrep()
 
   log_info "semgrep: actualizando la última versión estable vía pipx"
 
-  if ! pipx upgrade --install semgrep; then
+  if ! pipx upgrade semgrep; then
     log_error "semgrep: la actualización mediante pipx falló"
     return 1
   fi

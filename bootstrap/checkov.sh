@@ -33,7 +33,7 @@ install_checkov()
 
   log_info "checkov: instalando o actualizando la última versión estable vía pipx"
 
-  if ! pipx install --upgrade checkov; then
+  if ! pipx install checkov; then
     die "checkov: la instalación o actualización mediante pipx falló"
   fi
 
@@ -54,7 +54,7 @@ update_checkov()
 
   log_info "checkov: actualizando la última versión estable vía pipx"
 
-  if ! pipx upgrade --install checkov; then
+  if ! pipx upgrade checkov; then
     log_error "checkov: la actualización mediante pipx falló"
     return 1
   fi
