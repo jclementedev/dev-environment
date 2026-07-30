@@ -63,57 +63,7 @@ if command -v zoxide >/dev/null 2>&1; then
   eval "$(zoxide init zsh)"
 fi
 
-# -----------------------------------------------------------------------------
-# Aliases
-# -----------------------------------------------------------------------------
-
-# Navegación y listado.
-if command -v eza >/dev/null 2>&1; then
-  alias ll='eza -lah --git --icons'
-  alias la='eza -a --git --icons'
-  alias l='eza --icons'
-  alias tree='eza --tree --icons'
-
-  llg()
-  {
-    if (( $# == 0 )); then
-      print -u2 'uso: llg <patrón>'
-      return 2
-    fi
-
-    eza -lah --git --icons | grep -E -- "$@"
-  }
-else
-  alias ll='ls -lah'
-  alias la='ls -A'
-  alias l='ls -CF'
-
-  llg()
-  {
-    if (( $# == 0 )); then
-      print -u2 'uso: llg <patrón>'
-      return 2
-    fi
-
-    ls -lah | grep -E -- "$@"
-  }
-fi
-
-# Git.
-alias gs='git status'
-alias gp='git pull'
-alias gd='git diff'
-alias gco='git checkout'
-alias gcb='git checkout -b'
-
-# Utilidades.
-alias diff='diff --color=auto'
-alias df='df -h'
-
-# Navegación al directorio anterior.
-alias -- -='cd -'
-
-# bat.
+# bat: visor de archivos con resaltado de sintaxis.
 if command -v bat >/dev/null 2>&1; then
   export BAT_PAGER='less -RF'
 elif command -v batcat >/dev/null 2>&1; then
@@ -123,6 +73,22 @@ elif command -v batcat >/dev/null 2>&1; then
   }
 
   export BAT_PAGER='less -RF'
+fi
+
+# -----------------------------------------------------------------------------
+# Aliases
+# -----------------------------------------------------------------------------
+
+# Carga alias compartidos y, opcionalmente, alias locales del usuario.
+# El archivo de aliases locales es opcional y no está administrado por este repositorio.
+readonly ZSH_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zsh"
+
+if [[ -r "$ZSH_CONFIG_DIR/aliases.zsh" ]]; then
+  source "$ZSH_CONFIG_DIR/aliases.zsh"
+fi
+
+if [[ -r "$ZSH_CONFIG_DIR/aliases.local.zsh" ]]; then
+  source "$ZSH_CONFIG_DIR/aliases.local.zsh"
 fi
 
 # -----------------------------------------------------------------------------
@@ -156,11 +122,11 @@ fi
 # Plugins de Zsh
 # -----------------------------------------------------------------------------
 
-if [ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]; then
+if [[ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
   source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 fi
 
 # Debe cargarse al final para envolver correctamente los widgets de ZLE.
-if [ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
+if [[ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]]; then
   source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 fi
