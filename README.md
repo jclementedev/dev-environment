@@ -23,8 +23,8 @@ curl -fsSL https://raw.githubusercontent.com/jclementedev/dev-environment/main/b
 O clonar el repositorio manualmente:
 
 ```bash
-git clone https://github.com/jclementedev/dev-environment.git
-cd dev-environment
+git clone https://github.com/jclementedev/dev-environment.git ~/.local/share/dev-environment
+cd ~/.local/share/dev-environment
 ./install.sh
 ```
 
@@ -38,18 +38,18 @@ chsh -s "$(command -v zsh)"
 
 ## Estructura
 
-| Ruta             | Descripción                                                                |
-| ---------------- | -------------------------------------------------------------------------- |
-| `bootstrap/`     | Scripts de instalación por herramienta.                                    |
-| `bootstrap/lib/` | Bibliotecas compartidas para los bootstraps.                               |
-| `dotfiles/`      | Fuente de Chezmoi.                                                         |
-| `scripts/`       | Scripts auxiliares del entorno.                                            |
-| `scripts/lib/`   | Bibliotecas compartidas para los scripts auxiliares.                       |
-| `tests/`         | Pruebas Bats, fixtures y validaciones.                                     |
-| `docs/`          | Documentación del proyecto.                                                |
-| `.github/`       | Workflows de CI.                                                           |
-| `install.sh`     | Orquestador principal de instalación.                                      |
-| `bootstrap.sh`   | Punto de entrada con clonación y actualización automática del repositorio. |
+| Ruta             | Descripción                                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------- |
+| `bootstrap/`     | Scripts de instalación por herramienta.                                                   |
+| `bootstrap/lib/` | Bibliotecas compartidas para los bootstraps.                                              |
+| `dotfiles/`      | Configuración administrada por Chezmoi (Git, Zsh, SSH y otros archivos de configuración). |
+| `scripts/`       | Scripts auxiliares del entorno.                                                           |
+| `scripts/lib/`   | Bibliotecas compartidas para los scripts auxiliares.                                      |
+| `tests/`         | Pruebas Bats, fixtures y validaciones.                                                    |
+| `docs/`          | Documentación del proyecto.                                                               |
+| `.github/`       | Workflows de CI.                                                                          |
+| `install.sh`     | Orquestador principal de instalación.                                                     |
+| `bootstrap.sh`   | Punto de entrada con clonación y actualización automática del repositorio.                |
 
 ## Comandos principales
 

@@ -15,7 +15,7 @@ set -Eeuo pipefail
 
 readonly REPO_URL="https://github.com/jclementedev/dev-environment.git"
 readonly REPO_SSH_URL="git@github.com:jclementedev/dev-environment.git"
-readonly CLONE_TARGET="${DEV_ENVIRONMENT_HOME:-$HOME/dev-environment}"
+readonly CLONE_TARGET="${DEV_ENVIRONMENT_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/dev-environment}"
 readonly EXPECTED_BRANCH="main"
 
 bootstrap_log_info()

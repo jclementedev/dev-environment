@@ -77,8 +77,8 @@ curl -fsSL https://raw.githubusercontent.com/jclementedev/dev-environment/main/b
 ### Manual (clon directo)
 
 ```bash
-git clone https://github.com/jclementedev/dev-environment.git ~/dev-environment
-cd ~/dev-environment
+git clone https://github.com/jclementedev/dev-environment.git ~/.local/share/dev-environment
+cd ~/.local/share/dev-environment
 ./install.sh
 ```
 
@@ -118,7 +118,7 @@ tenga efecto.
 
 | Variable | Uso |
 | --- | --- |
-| `DEV_ENVIRONMENT_HOME` | Directorio objetivo de clonación para `bootstrap.sh`; por defecto `~/dev-environment`. |
+| `DEV_ENVIRONMENT_HOME` | Directorio objetivo de clonación para `bootstrap.sh`; por defecto `${XDG_DATA_HOME:-$HOME/.local/share}/dev-environment`. |
 | `DEV_ENV_STATE_DIR` | Directorio de estado para backups y, cuando se usa `account.sh`, estado de cuentas; por defecto `~/.local/state/dev-env-bootstrap`. |
 | `BOOTSTRAP_GIT_USER_NAME` | Nombre Git usado al crear por primera vez `~/.config/chezmoi/chezmoi.toml` sin interacción. |
 | `BOOTSTRAP_GIT_USER_EMAIL` | Email Git usado al crear por primera vez la configuración de Chezmoi sin interacción. |
