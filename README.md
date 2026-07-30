@@ -103,9 +103,7 @@ bash scripts/account.sh setup-primary
 bash scripts/account.sh add acme \
   --name "Jane" \
   --email "jane@acme.test" \
-  --github-login jane-acme \
-  --ssh-key ~/.ssh/id_acme \
-  --ssh-alias gh-acme \
+  --github-username jane-acme \
   --scope /srv/repos/acme
 ```
 

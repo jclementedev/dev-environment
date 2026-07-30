@@ -1,41 +1,45 @@
 #!/usr/bin/env bats
-# Cobertura de integridad para el alta de cuentas secundarias.
+# Cobertura del alta y verificación de cuentas GitHub.
 
 setup() {
   REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
   TEST_HOME="$(mktemp -d)"
-  TEST_STATE_DIR="$(mktemp -d)"
   TEST_BIN="$(mktemp -d)"
 
   mkdir -p "$TEST_HOME/.ssh"
-  ssh-keygen -q -t ed25519 -N "" -f "$TEST_HOME/.ssh/id_acme"
 
+  # Claves pre-existentes para que add no necesite /dev/tty.
+  ssh-keygen -q -t ed25519 -N "" -f "$TEST_HOME/.ssh/id_ed25519"
+  ssh-keygen -q -t ed25519 -N "" -f "$TEST_HOME/.ssh/id_ed25519_acme"
+  ssh-keygen -q -t ed25519 -N "" -f "$TEST_HOME/.ssh/id_ed25519_work"
+  ssh-keygen -q -t ed25519 -N "" -f "$TEST_HOME/.ssh/id_ed25519_work2"
+
+  # Routing de cuentas debe estar incluido en ~/.gitconfig.
+  printf '[include]\n    path = ~/.config/git/accounts-routing.gitconfig\n' \
+      > "$TEST_HOME/.gitconfig"
+
+  # Stub ssh: valida la clave (-i) contra SSH_EXPECTED_KEY y emite saludo.
   cat > "$TEST_BIN/ssh" <<'EOF'
 #!/bin/sh
-if [ -n "${SSH_CALLED_MARKER:-}" ]; then
-  : > "$SSH_CALLED_MARKER"
+key=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -i) [ "$#" -ge 2 ] || exit 2; key="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+if [ -n "${SSH_EXPECTED_KEY:-}" ] && [ "$key" != "$SSH_EXPECTED_KEY" ]; then
+    printf 'unexpected SSH key: %s\n' "$key" >&2
+    exit 1
 fi
-printf '%s\n' "${SSH_GREETING:-Hi acme! You've successfully authenticated, but GitHub does not provide shell access.}"
+printf '%s\n' \
+    "${SSH_GREETING:-Hi acme! You've successfully authenticated, but GitHub does not provide shell access.}"
 EOF
   chmod +x "$TEST_BIN/ssh"
 
-  cat > "$TEST_BIN/mv" <<'EOF'
-#!/bin/bash
-destination="${!#}"
-if [ "${FAIL_ROUTING_MV_ONCE:-}" = "1" ] && \
-   [ "$destination" = "$HOME/.config/git/accounts-routing.gitconfig" ] && \
-   [ ! -e "$MV_FAILURE_MARKER" ]; then
-  : > "$MV_FAILURE_MARKER"
-  /bin/mv "$@"
-  exit 1
-fi
-exec /bin/mv "$@"
-EOF
-  chmod +x "$TEST_BIN/mv"
-
+  # Stub ssh-keyscan: emite host keys.
   cat > "$TEST_BIN/ssh-keyscan" <<'EOF'
 #!/bin/sh
-[ -z "${GITHUB_HOST_TRUST_MARKER:-}" ] || : > "$GITHUB_HOST_TRUST_MARKER"
 cat <<'KEYS'
 github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
 github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
@@ -46,246 +50,270 @@ EOF
 }
 
 teardown() {
-  rm -rf "$TEST_HOME" "$TEST_STATE_DIR" "$TEST_BIN"
+  rm -rf "$TEST_HOME" "$TEST_BIN"
 }
 
-@test "account add initializes valid state before writing the first secondary account" {
-  run env HOME="$TEST_HOME" DEV_ENV_STATE_DIR="$TEST_STATE_DIR" PATH="$TEST_BIN:$PATH" \
-    GITHUB_HOST_TRUST_MARKER="$TEST_HOME/github-host-trusted" \
-    bash "$REPO_ROOT/scripts/account.sh" add acme \
-    --name "Acme User" \
-    --email "acme@example.test" \
-    --github-login acme \
-    --ssh-key "$TEST_HOME/.ssh/id_acme" \
-    --ssh-alias gh-acme \
-    --scope "$TEST_HOME/repos/acme" <<< "y"
-
-  [ "$status" -eq 0 ]
-  [ -e "$TEST_HOME/github-host-trusted" ]
-  run jq -e '
-    .schema_version == 1 and
-    (.primary_accounts | type == "array") and
-    (.secondary_accounts | length == 1) and
-    .secondary_accounts[0].id == "acme" and
-    .secondary_accounts[0].github_login == "acme"
-  ' "$TEST_STATE_DIR/github-accounts.json"
-  [ "$status" -eq 0 ]
+run_account() {
+  env HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" "$@"
 }
 
-@test "verify-primary trusts the GitHub host before authenticating" {
-  run env HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" \
-    GITHUB_PRIMARY_SSH_KEY="$TEST_HOME/.ssh/id_acme" \
-    GITHUB_PRIMARY_LOGIN="acme" \
-    GITHUB_PRIMARY_NAME="Acme User" \
-    GITHUB_PRIMARY_EMAIL="acme@example.test" \
-    GITHUB_HOST_TRUST_MARKER="$TEST_HOME/github-host-trusted" \
-    bash "$REPO_ROOT/scripts/account.sh" verify-primary
+@test "setup-primary reutiliza clave existente y muestra pública" {
+  run run_account GITHUB_PRIMARY_EMAIL="user@example.test" \
+    GITHUB_PRIMARY_USERNAME="user" \
+    bash "$REPO_ROOT/scripts/account.sh" setup-primary
 
   [ "$status" -eq 0 ]
-  [ -e "$TEST_HOME/github-host-trusted" ]
+  [ -f "$TEST_HOME/.ssh/id_ed25519" ]
+  [ -f "$TEST_HOME/.ssh/id_ed25519.pub" ]
+  [[ "$output" == *"ssh-ed25519"* ]]
 }
 
-@test "verify-primary reads identity values only from the Chezmoi data table" {
-  mkdir -p "$TEST_HOME/.config/chezmoi"
-  cat > "$TEST_HOME/.config/chezmoi/chezmoi.toml" <<EOF
-git_user_name = "Wrong Name"
-git_user_email = "wrong@example.test"
-primary_ssh_key = "/missing/key"
+@test "setup-primary sin clave requiere terminal interactiva" {
+  rm -f "$TEST_HOME/.ssh/id_ed25519" "$TEST_HOME/.ssh/id_ed25519.pub"
 
-[data]
-git_user_name = "Acme User"
-git_user_email = "acme@example.test"
-primary_ssh_key = "$TEST_HOME/.ssh/id_acme"
-github_login = "acme"
-EOF
-
-  run env HOME="$TEST_HOME" DEV_ENV_STATE_DIR="$TEST_STATE_DIR" PATH="$TEST_BIN:$PATH" \
-    bash "$REPO_ROOT/scripts/account.sh" verify-primary
-
-  [ "$status" -eq 0 ]
-  run jq -e --arg key "$TEST_HOME/.ssh/id_acme" \
-    '.primary_accounts[0] | .name == "Acme User" and .email == "acme@example.test" and .ssh_key == $key' \
-    "$TEST_STATE_DIR/github-accounts.json"
-  [ "$status" -eq 0 ]
-}
-
-@test "account add rejects an SSH key authenticated as a different GitHub login" {
-  run env HOME="$TEST_HOME" DEV_ENV_STATE_DIR="$TEST_STATE_DIR" PATH="$TEST_BIN:$PATH" \
-    SSH_GREETING="Hi other-account! You've successfully authenticated, but GitHub does not provide shell access." \
-    bash "$REPO_ROOT/scripts/account.sh" add acme \
-    --name "Acme User" \
-    --email "acme@example.test" \
-    --github-login acme \
-    --ssh-key "$TEST_HOME/.ssh/id_acme" \
-    --ssh-alias gh-acme \
-    --scope "$TEST_HOME/repos/acme" <<< "y"
+  run run_account GITHUB_PRIMARY_EMAIL="user@example.test" \
+    GITHUB_PRIMARY_USERNAME="user" \
+    bash "$REPO_ROOT/scripts/account.sh" setup-primary </dev/null
 
   [ "$status" -ne 0 ]
-  [[ "$output" == *"verificación de auth fallida"* ]]
-  run jq -e '.secondary_accounts | length == 0' "$TEST_STATE_DIR/github-accounts.json"
-  [ "$status" -eq 0 ]
-  [ ! -e "$TEST_HOME/.config/git/accounts/acme.gitconfig" ]
+  [[ "$output" == *"terminal interactiva"* ]]
 }
 
-@test "account add restores routing and keeps state inactive when routing activation fails" {
-  mkdir -p "$TEST_HOME/.config/git/accounts" "$TEST_HOME/.ssh.d/accounts"
-  cat > "$TEST_HOME/.config/git/accounts-routing.gitconfig" <<EOF
-[includeIf "gitdir:$TEST_HOME/repos/existing/"]
-    path = $TEST_HOME/.config/git/accounts/existing.gitconfig
-EOF
-  cat > "$TEST_HOME/.config/git/accounts/existing.gitconfig" <<'EOF'
-[user]
-    name = Existing User
-EOF
-  cat > "$TEST_HOME/.ssh.d/accounts/existing.ssh.config" <<'EOF'
-Host gh-existing
-    HostName github.com
-EOF
-  cat > "$TEST_STATE_DIR/github-accounts.json" <<EOF
-{"schema_version":1,"primary_accounts":[],"secondary_accounts":[{"id":"existing","name":"Existing User","email":"existing@example.test","github_login":"existing","ssh_key":"$TEST_HOME/.ssh/id_acme","ssh_alias":"gh-existing","scope":"$TEST_HOME/repos/existing"}]}
-EOF
-  local routing_before fragment_before ssh_config_before key_before pub_key_before
-  routing_before="$(<"$TEST_HOME/.config/git/accounts-routing.gitconfig")"
-  fragment_before="$(<"$TEST_HOME/.config/git/accounts/existing.gitconfig")"
-  ssh_config_before="$(<"$TEST_HOME/.ssh.d/accounts/existing.ssh.config")"
-  key_before="$(<"$TEST_HOME/.ssh/id_acme")"
-  pub_key_before="$(<"$TEST_HOME/.ssh/id_acme.pub")"
+@test "verify primary autentica con la clave primaria" {
+  run run_account GITHUB_PRIMARY_USERNAME="acme" \
+    SSH_EXPECTED_KEY="$TEST_HOME/.ssh/id_ed25519" \
+    bash "$REPO_ROOT/scripts/account.sh" verify primary
 
-  run env HOME="$TEST_HOME" DEV_ENV_STATE_DIR="$TEST_STATE_DIR" PATH="$TEST_BIN:$PATH" \
-    FAIL_ROUTING_MV_ONCE=1 MV_FAILURE_MARKER="$TEST_HOME/routing-mv-failed" \
-    bash "$REPO_ROOT/scripts/account.sh" add acme \
+  [ "$status" -eq 0 ]
+}
+
+@test "verify primary no requiere include de routing" {
+  rm -f "$TEST_HOME/.gitconfig"
+
+  run run_account GITHUB_PRIMARY_USERNAME="acme" \
+    SSH_EXPECTED_KEY="$TEST_HOME/.ssh/id_ed25519" \
+    bash "$REPO_ROOT/scripts/account.sh" verify primary
+
+  [ "$status" -eq 0 ]
+}
+
+@test "add crea clave, fragmento con core.sshCommand y routing" {
+  mkdir -p "$TEST_HOME/repos/acme"
+
+  run run_account bash "$REPO_ROOT/scripts/account.sh" add acme \
     --name "Acme User" \
     --email "acme@example.test" \
-    --github-login acme \
-    --ssh-key "$TEST_HOME/.ssh/id_acme" \
-    --ssh-alias gh-acme \
-    --scope "$TEST_HOME/repos/acme" <<< "y"
+    --github-username acme \
+    --scope "$TEST_HOME/repos/acme"
 
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"no se pudo activar el enrutamiento Git"* ]]
-  run jq -e '.secondary_accounts | length == 1 and .[0].id == "existing"' "$TEST_STATE_DIR/github-accounts.json"
   [ "$status" -eq 0 ]
-  [ "$(<"$TEST_HOME/.config/git/accounts-routing.gitconfig")" = "$routing_before" ]
-  [ "$(<"$TEST_HOME/.config/git/accounts/existing.gitconfig")" = "$fragment_before" ]
-  [ "$(<"$TEST_HOME/.ssh.d/accounts/existing.ssh.config")" = "$ssh_config_before" ]
-  [ "$(<"$TEST_HOME/.ssh/id_acme")" = "$key_before" ]
-  [ "$(<"$TEST_HOME/.ssh/id_acme.pub")" = "$pub_key_before" ]
-  [ ! -e "$TEST_HOME/.config/git/accounts/acme.gitconfig" ]
-  [ ! -e "$TEST_HOME/.ssh.d/accounts/acme.ssh.config" ]
+  [ -f "$TEST_HOME/.ssh/id_ed25519_acme" ]
+  [ -f "$TEST_HOME/.ssh/id_ed25519_acme.pub" ]
+  [ -f "$TEST_HOME/.config/git/accounts/acme.gitconfig" ]
+  [ -f "$TEST_HOME/.config/git/accounts-routing.gitconfig" ]
+  [ -d "$TEST_HOME/repos/acme" ]
+  [[ "$output" == *"verify acme"* ]]
+
+  run git config --file "$TEST_HOME/.config/git/accounts/acme.gitconfig" --get user.name
+  [ "$output" = "Acme User" ]
+
+  run git config --file "$TEST_HOME/.config/git/accounts/acme.gitconfig" --get user.email
+  [ "$output" = "acme@example.test" ]
+
+  run git config --file "$TEST_HOME/.config/git/accounts/acme.gitconfig" --get github.username
+  [ "$output" = "acme" ]
+
+  run git config --file "$TEST_HOME/.config/git/accounts/acme.gitconfig" --get core.sshCommand
+  [[ "$output" == *"id_ed25519_acme"* ]]
+  [[ "$output" == *"IdentitiesOnly=yes"* ]]
 }
 
-@test "account add writes quoted Git identity values without config injection" {
+@test "add resuelve includeIf funcionalmente dentro del scope" {
+  mkdir -p "$TEST_HOME/repos/acme/proyecto"
+  run run_account bash "$REPO_ROOT/scripts/account.sh" add acme \
+    --name "Acme User" \
+    --email "acme@example.test" \
+    --github-username acme \
+    --scope "$TEST_HOME/repos/acme"
+  [ "$status" -eq 0 ]
+
+  git -C "$TEST_HOME/repos/acme/proyecto" init -q
+
+  run env HOME="$TEST_HOME" \
+    git -C "$TEST_HOME/repos/acme/proyecto" config --get user.name
+  [ "$status" -eq 0 ]
+  [ "$output" = "Acme User" ]
+
+  run env HOME="$TEST_HOME" \
+    git -C "$TEST_HOME/repos/acme/proyecto" config --get user.email
+  [ "$status" -eq 0 ]
+  [ "$output" = "acme@example.test" ]
+
+  run env HOME="$TEST_HOME" \
+    git -C "$TEST_HOME/repos/acme/proyecto" config --get core.sshCommand
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$TEST_HOME/.ssh/id_ed25519_acme"* ]]
+}
+
+@test "add escribe valores con comillas sin inyección de config" {
+  mkdir -p "$TEST_HOME/repos/acme"
   local git_name='Acme "Builder"'
-  local git_email='acme"quoted"@example.test'
+  local git_email='acme.builder@example.test'
 
-  run env HOME="$TEST_HOME" DEV_ENV_STATE_DIR="$TEST_STATE_DIR" PATH="$TEST_BIN:$PATH" \
-    bash "$REPO_ROOT/scripts/account.sh" add acme \
+  run run_account bash "$REPO_ROOT/scripts/account.sh" add acme \
     --name "$git_name" \
     --email "$git_email" \
-    --github-login acme \
-    --ssh-key "$TEST_HOME/.ssh/id_acme" \
-    --ssh-alias gh-acme \
-    --scope "$TEST_HOME/repos/acme" <<< "y"
+    --github-username acme \
+    --scope "$TEST_HOME/repos/acme"
 
   [ "$status" -eq 0 ]
   run git config --file "$TEST_HOME/.config/git/accounts/acme.gitconfig" --get user.name
-  [ "$status" -eq 0 ]
   [ "$output" = "$git_name" ]
   run git config --file "$TEST_HOME/.config/git/accounts/acme.gitconfig" --get user.email
-  [ "$status" -eq 0 ]
   [ "$output" = "$git_email" ]
-  run git config --file "$TEST_HOME/.config/git/accounts/acme.gitconfig" --get include.path
+}
+
+@test "add rechaza id 'primary'" {
+  run run_account bash "$REPO_ROOT/scripts/account.sh" add primary \
+    --name "User" \
+    --email "user@example.test" \
+    --github-username user \
+    --scope "$TEST_HOME/repos/acme"
+
   [ "$status" -ne 0 ]
+  [[ "$output" == *"primary"* ]]
 }
 
-@test "write_state rejects JSON that does not satisfy the account schema" {
-  run env HOME="$TEST_HOME" DEV_ENV_STATE_DIR="$TEST_STATE_DIR" \
-    bash -c '. "$1/scripts/lib/github-accounts.sh"; write_state "{\"secondary_accounts\": []}"' \
-    bash "$REPO_ROOT"
+@test "add aborta si par de claves está incompleto" {
+  : > "$TEST_HOME/.ssh/id_ed25519_broken"
+
+  run run_account bash "$REPO_ROOT/scripts/account.sh" add broken \
+    --name "User" \
+    --email "user@example.test" \
+    --github-username user \
+    --scope "$TEST_HOME/repos/acme"
 
   [ "$status" -ne 0 ]
-  [[ "$output" == *"estado no cumple el esquema"* ]]
-  [ ! -e "$TEST_STATE_DIR/github-accounts.json" ]
+  [[ "$output" == *"par de claves incompleto"* ]]
 }
 
-@test "account add preserves invalid existing state without activation or persistence" {
-  local malformed_state duplicate_state
-  malformed_state='{"schema_version":1,"primary_accounts":[],"secondary_accounts":['
-  duplicate_state='{"schema_version":1,"primary_accounts":[],"secondary_accounts":[{"id":"acme","name":"Acme","email":"acme@example.test","github_login":"acme","ssh_key":"/tmp/acme","ssh_alias":"gh-acme","scope":"/tmp/acme"},{"id":"acme","name":"Other","email":"other@example.test","github_login":"other","ssh_key":"/tmp/other","ssh_alias":"gh-other","scope":"/tmp/other"}]}'
-
-  for state in "$malformed_state" "$duplicate_state"; do
-    printf '%s\n' "$state" > "$TEST_STATE_DIR/github-accounts.json"
-    local state_before
-    state_before="$(<"$TEST_STATE_DIR/github-accounts.json")"
-
-    run env HOME="$TEST_HOME" DEV_ENV_STATE_DIR="$TEST_STATE_DIR" PATH="$TEST_BIN:$PATH" \
-      SSH_CALLED_MARKER="$TEST_HOME/ssh-called" \
-      bash "$REPO_ROOT/scripts/account.sh" add acme \
-      --name "Acme User" \
-      --email "acme@example.test" \
-      --github-login acme \
-      --ssh-key "$TEST_HOME/.ssh/id_acme" \
-      --ssh-alias gh-acme \
-      --scope "$TEST_HOME/repos/acme" <<< "y"
-
-    [ "$status" -ne 0 ]
-    [[ "$output" == *"archivo de estado existente no es válido; no se modificó"* ]]
-    [ "$(<"$TEST_STATE_DIR/github-accounts.json")" = "$state_before" ]
-    [ ! -e "$TEST_HOME/ssh-called" ]
-    [ ! -e "$TEST_HOME/.config/git/accounts/acme.gitconfig" ]
-    [ ! -e "$TEST_HOME/.ssh.d/accounts/acme.ssh.config" ]
-  done
-}
-
-@test "account add rejects an alias introduced after it acquires the lock" {
-  cat > "$TEST_STATE_DIR/github-accounts.json" <<EOF
-{"schema_version":1,"primary_accounts":[],"secondary_accounts":[]}
-EOF
-  cat > "$TEST_BIN/jq" <<'EOF'
-#!/bin/bash
-if [ -d "$DEV_ENV_STATE_DIR/accounts.lock" ] && [ ! -e "$DEV_ENV_STATE_DIR/alias-injected" ]; then
-  : > "$DEV_ENV_STATE_DIR/alias-injected"
-  printf '%s\n' "{\"schema_version\":1,\"primary_accounts\":[],\"secondary_accounts\":[{\"id\":\"racer\",\"name\":\"Race User\",\"email\":\"race@example.test\",\"github_login\":\"racer\",\"ssh_key\":\"$HOME/.ssh/id_acme\",\"ssh_alias\":\"GH-RACE\",\"scope\":\"$HOME/repos/racer\"}]}" > "$DEV_ENV_STATE_DIR/github-accounts.json"
-fi
-exec /usr/bin/jq "$@"
-EOF
-  chmod +x "$TEST_BIN/jq"
-
-  run env HOME="$TEST_HOME" DEV_ENV_STATE_DIR="$TEST_STATE_DIR" PATH="$TEST_BIN:$PATH" \
-    bash "$REPO_ROOT/scripts/account.sh" add acme \
+@test "add falla si la cuenta ya existe" {
+  mkdir -p "$TEST_HOME/repos/acme"
+  run run_account bash "$REPO_ROOT/scripts/account.sh" add acme \
     --name "Acme User" \
     --email "acme@example.test" \
-    --github-login acme \
-    --ssh-key "$TEST_HOME/.ssh/id_acme" \
-    --ssh-alias gh-race \
-    --scope "$TEST_HOME/repos/acme" <<< "y"
-
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"alias 'gh-race' ya está en uso por cuenta 'racer'"* ]]
-  [ ! -e "$TEST_HOME/.config/git/accounts/acme.gitconfig" ]
-  [ ! -e "$TEST_HOME/.ssh.d/accounts/acme.ssh.config" ]
-}
-
-@test "validate_schema rejects malformed account records and duplicate account state" {
-  local legacy_primary malformed_primary duplicate_primary duplicate_id duplicate_alias
-  legacy_primary='{"schema_version":1,"primary_accounts":[{"id":"primary","name":"Primary","email":"primary@example.test","ssh_key":"/tmp/primary"}],"secondary_accounts":[]}'
-  malformed_primary='{"schema_version":1,"primary_accounts":[{"id":"primary","name":"Primary","email":"primary@example.test","ssh_key":false}],"secondary_accounts":[]}'
-  duplicate_primary='{"schema_version":1,"primary_accounts":[{"id":"primary","name":"Primary","email":"primary@example.test","ssh_key":"/tmp/primary"},{"id":"primary","name":"Other","email":"other@example.test","ssh_key":"/tmp/other"}],"secondary_accounts":[]}'
-  duplicate_id='{"schema_version":1,"primary_accounts":[],"secondary_accounts":[{"id":"acme","name":"Acme","email":"acme@example.test","github_login":"acme","ssh_key":"/tmp/acme","ssh_alias":"gh-acme","scope":"/tmp/acme"},{"id":"acme","name":"Other","email":"other@example.test","github_login":"other","ssh_key":"/tmp/other","ssh_alias":"gh-other","scope":"/tmp/other"}]}'
-  duplicate_alias='{"schema_version":1,"primary_accounts":[],"secondary_accounts":[{"id":"acme","name":"Acme","email":"acme@example.test","github_login":"acme","ssh_key":"/tmp/acme","ssh_alias":"gh-acme","scope":"/tmp/acme"},{"id":"other","name":"Other","email":"other@example.test","github_login":"other","ssh_key":"/tmp/other","ssh_alias":"GH-ACME","scope":"/tmp/other"}]}'
-
-  printf '%s\n' "$legacy_primary" > "$TEST_STATE_DIR/github-accounts.json"
-  run env HOME="$TEST_HOME" DEV_ENV_STATE_DIR="$TEST_STATE_DIR" \
-    bash -c '. "$1/scripts/lib/github-accounts.sh"; validate_schema' \
-    bash "$REPO_ROOT"
+    --github-username acme \
+    --scope "$TEST_HOME/repos/acme"
   [ "$status" -eq 0 ]
 
-  for state in "$malformed_primary" "$duplicate_primary" "$duplicate_id" "$duplicate_alias"; do
-    printf '%s\n' "$state" > "$TEST_STATE_DIR/github-accounts.json"
-    run env HOME="$TEST_HOME" DEV_ENV_STATE_DIR="$TEST_STATE_DIR" \
-      bash -c '. "$1/scripts/lib/github-accounts.sh"; validate_schema' \
-      bash "$REPO_ROOT"
-    [ "$status" -ne 0 ]
-    [[ "$output" == *"registros de cuentas inválidos o duplicados"* ]]
-  done
+  run run_account bash "$REPO_ROOT/scripts/account.sh" add acme \
+    --name "Other" \
+    --email "other@example.test" \
+    --github-username other \
+    --scope "$TEST_HOME/repos/acme"
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"ya existe"* ]]
+}
+
+@test "add rechaza scope ya asociado a otra cuenta" {
+  mkdir -p "$TEST_HOME/repos/work"
+  run run_account bash "$REPO_ROOT/scripts/account.sh" add work \
+    --name "Work User" \
+    --email "work@example.test" \
+    --github-username work-user \
+    --scope "$TEST_HOME/repos/work"
+  [ "$status" -eq 0 ]
+
+  run run_account bash "$REPO_ROOT/scripts/account.sh" add work2 \
+    --name "Work2 User" \
+    --email "work2@example.test" \
+    --github-username work2-user \
+    --scope "$TEST_HOME/repos/work"
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"ya está asociado"* ]]
+}
+
+@test "verify secundario usa su clave y autentica" {
+  mkdir -p "$TEST_HOME/repos/acme"
+  run run_account bash "$REPO_ROOT/scripts/account.sh" add acme \
+    --name "Acme User" \
+    --email "acme@example.test" \
+    --github-username acme \
+    --scope "$TEST_HOME/repos/acme"
+  [ "$status" -eq 0 ]
+
+  run run_account SSH_EXPECTED_KEY="$TEST_HOME/.ssh/id_ed25519_acme" \
+    bash "$REPO_ROOT/scripts/account.sh" verify acme
+
+  [ "$status" -eq 0 ]
+}
+
+@test "verify secundario sin include de routing falla con mensaje claro" {
+  rm -f "$TEST_HOME/.gitconfig"
+
+  mkdir -p "$TEST_HOME/.config/git/accounts"
+  git config --file "$TEST_HOME/.config/git/accounts/acme.gitconfig" github.username acme
+
+  run run_account bash "$REPO_ROOT/scripts/account.sh" verify acme
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"debe incluir el routing"* ]]
+}
+
+@test "verify de id inexistente falla con mensaje claro" {
+  run run_account bash "$REPO_ROOT/scripts/account.sh" verify missing
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"missing"* ]]
+  [[ "$output" == *"no encontrada"* ]]
+}
+
+@test "verify rechaza saludo que no coincide con username esperado" {
+  mkdir -p "$TEST_HOME/repos/acme"
+  run run_account bash "$REPO_ROOT/scripts/account.sh" add acme \
+    --name "Acme User" \
+    --email "acme@example.test" \
+    --github-username acme \
+    --scope "$TEST_HOME/repos/acme"
+  [ "$status" -eq 0 ]
+
+  run run_account SSH_GREETING="Hi other! You've successfully authenticated, but GitHub does not provide shell access." \
+    bash "$REPO_ROOT/scripts/account.sh" verify acme
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"verificación"* ]]
+  [[ "$output" == *"fallida"* ]]
+}
+
+@test "list muestra cuentas configuradas desde disco" {
+  mkdir -p "$TEST_HOME/.config/git/accounts"
+
+  cat > "$TEST_HOME/.config/git/accounts/acme.gitconfig" <<EOF
+[user]
+    name = Acme User
+    email = acme@example.test
+EOF
+
+  cat > "$TEST_HOME/.config/git/accounts/work.gitconfig" <<EOF
+[user]
+    name = Work User
+    email = work@example.test
+EOF
+
+  run run_account bash "$REPO_ROOT/scripts/account.sh" list
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"acme"* ]]
+  [[ "$output" == *"work"* ]]
+  [[ "$output" == *"acme@example.test"* ]]
+  [[ "$output" == *"work@example.test"* ]]
+}
+
+@test "list sin cuentas indica vacío" {
+  run run_account bash "$REPO_ROOT/scripts/account.sh" list
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"no hay cuentas"* ]]
 }

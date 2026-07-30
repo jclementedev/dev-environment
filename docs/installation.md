@@ -84,7 +84,7 @@ cd ~/.local/share/dev-environment
 
 `install.sh` orquesta: validar plataforma → cachear sudo → ejecutar bootstraps
 requeridos y opcionales → crear datos iniciales de Chezmoi → aplicar Chezmoi.
-No inicializa `github-accounts.json` ni modifica `known_hosts`.
+No inicializa cuentas GitHub ni modifica `known_hosts`.
 
 Los componentes opcionales incluyen `dev-tools`, que instala Bats, ShellCheck y
 shfmt. Homebrew no se ejecuta en este flujo; `bootstrap/brew.sh` permanece como
@@ -119,14 +119,13 @@ tenga efecto.
 | Variable | Uso |
 | --- | --- |
 | `DEV_ENVIRONMENT_HOME` | Directorio objetivo de clonación para `bootstrap.sh`; por defecto `${XDG_DATA_HOME:-$HOME/.local/share}/dev-environment`. |
-| `DEV_ENV_STATE_DIR` | Directorio de estado para backups y, cuando se usa `account.sh`, estado de cuentas; por defecto `~/.local/state/dev-env-bootstrap`. |
+| `DEV_ENV_STATE_DIR` | Directorio de estado para backups; por defecto `~/.local/state/dev-env-bootstrap`. |
 | `BOOTSTRAP_GIT_USER_NAME` | Nombre Git usado al crear por primera vez `~/.config/chezmoi/chezmoi.toml` sin interacción. |
 | `BOOTSTRAP_GIT_USER_EMAIL` | Email Git usado al crear por primera vez la configuración de Chezmoi sin interacción. |
-| `BOOTSTRAP_SSH_KEY_PATH` | Ruta de la clave SSH principal almacenada como `data.primary_ssh_key` al crear la configuración de Chezmoi. |
+| `BOOTSTRAP_SSH_KEY_PATH` | Ruta a la clave SSH principal almacenada como `data.primary_ssh_key` al crear la configuración de Chezmoi. |
 | `GITHUB_PRIMARY_NAME` | Reemplaza `data.git_user_name` al registrar la cuenta GitHub principal. |
 | `GITHUB_PRIMARY_EMAIL` | Reemplaza `data.git_user_email` al registrar la cuenta GitHub principal. |
-| `GITHUB_PRIMARY_SSH_KEY` | Reemplaza `data.primary_ssh_key` al configurar o verificar la cuenta GitHub principal. |
-| `GITHUB_PRIMARY_LOGIN` | Login esperado al verificar la cuenta GitHub principal; también puede definirse como `data.github_login`. |
+| `GITHUB_PRIMARY_USERNAME` | Username de GitHub esperado al verificar la cuenta GitHub principal. |
 
 ## Configurar GitHub después de instalar
 
@@ -144,34 +143,33 @@ autenticación y registra el estado de la cuenta.
 ## Agregar cuentas secundarias
 
 Después de configurar la cuenta principal si la necesita, agregue cuentas
-secundarias con `account.sh add`. Cada cuenta usa la clave indicada: se genera
-una nueva si no existe o se reutiliza una clave existente válida. También recibe
-un alias SSH y routing basado en gitdir scope.
+secundarias con `account.sh add`. El script fija la identidad de cada cuenta
+secundaria mediante `core.sshCommand` en su fragmento gitconfig, lo que permite
+clonar con URLs estándar de GitHub sin alias especiales.
 
 ```bash
 bash scripts/account.sh add <id> \
   --name "Jane" \
   --email "jane@acme.test" \
-  --github-login jane-acme \
-  --ssh-key ~/.ssh/id_acme \
-  --ssh-alias gh-acme \
+  --github-username jane-acme \
   --scope /srv/repos/acme
 ```
 
-Los seis flags son requeridos:
+Los cuatro flags son requeridos:
 
-| Flag          | Descripción                                                |
-| ------------- | ---------------------------------------------------------- |
-| `--name`      | Nombre para mostrar en la identidad Git de la cuenta       |
-| `--email`     | Dirección de email de GitHub para la cuenta                |
-| `--github-login` | Login de GitHub que debe identificar el saludo de autenticación SSH |
-| `--ssh-key`   | Path absoluto a la clave SSH privada (se genera si no existe) |
-| `--ssh-alias` | Alias SSH único usado en `~/.ssh/config` y reescrituras de URL de Git |
-| `--scope`     | Prefijo de path absoluto para routing basado en gitdir (nunca se crea ni toca) |
+| Flag                | Descripción                                                |
+| ------------------- | ---------------------------------------------------------- |
+| `--name`            | Nombre para mostrar en la identidad Git de la cuenta       |
+| `--email`           | Dirección de email de GitHub para la cuenta                |
+| `--github-username` | Username público de GitHub para verificar el saludo SSH    |
+| `--scope`           | Prefijo de path absoluto para routing basado en gitdir (nunca se crea ni toca) |
 
-Los scopes deben ser distintos y no superpuestos. Scopes anidados o iguales son rechazados. Los aliases deben ser únicos en todas las cuentas (comparación case-insensitive). El ID `primary` está reservado y no puede usarse.
+La clave SSH se genera automáticamente en `~/.ssh/id_ed25519_<id>` (o se reutiliza
+si ya existe) y la ruta se incrusta en el fragmento via `core.sshCommand`. El
+script rechaza scopes duplicados y no modifica cuentas existentes.
 
-La verificación primaria requiere el login esperado mediante `GITHUB_PRIMARY_LOGIN` o `data.github_login` en `~/.config/chezmoi/chezmoi.toml`. El estado previo que no contiene `github_login` se mantiene legible, pero no puede considerarse un registro de identidad verificada.
+La verificación primaria requiere el username esperado mediante
+`GITHUB_PRIMARY_USERNAME`. No se utiliza ningún archivo de estado JSON.
 
 ## Claves de host SSH de GitHub
 
@@ -186,14 +184,11 @@ reemplaza discrepancias automáticamente.
 
 Para resetear el ambiente y reinstalar desde cero:
 
-1. Leer estado — `cat ~/.local/state/dev-env-bootstrap/github-accounts.json | jq .` (o anotar dónde está el archivo).
-2. Conservar el backup anunciado `~/.local/state/dev-env-bootstrap/backups/pre-chezmoi/`; no lo elimine hasta comprobar la nueva instalación.
-3. Desactivar el routing de cuentas — `rm -f ~/.config/git/accounts-routing.gitconfig`. Esta operación no es atómica; cierre procesos Git que puedan usarlo antes de ejecutarla.
-4. Remover estado, lock y staging — `rm -rf ~/.local/state/dev-env-bootstrap/{accounts.lock,github-accounts.json,transactions}`. No remover claves SSH generadas aquí aún (ver paso 7).
-5. Remover fragmentos de cuenta y configuración SSH de cuenta — `rm -rf ~/.config/git/accounts ~/.ssh.d/accounts`.
-6. Remover estado local de Chezmoi y archivos base manejados — `rm -f ~/.gitconfig ~/.config/chezmoi/chezmoi.toml ~/.ssh/config`. `~/.ssh/known_hosts` no se elimina: las entradas de GitHub las administra `account.sh` y el backup no preserva el archivo completo.
-7. OPCIONAL: remover claves secundarias generadas — estas claves no se reutilizan en ningún otro lado; puede remover `~/.ssh/id_*` (excepto la clave primary) si desea. La clave primary en `primary_ssh_key` debería conservarse si planea volver a ejecutar bootstrap.
-8. Revertir source y volver a ejecutar bootstrap — `git -C <dev-environment-repo> checkout dotfiles/ scripts/` (o `git restore`) y volver a ejecutar `bash bootstrap.sh` o `curl ... | bash` según el flujo de instalación.
+1. Desactivar el routing de cuentas — `rm -f ~/.config/git/accounts-routing.gitconfig`. Esta operación no es atómica; cierre procesos Git que puedan usarlo antes de ejecutarla.
+2. Remover fragmentos de cuenta — `rm -rf ~/.config/git/accounts`.
+3. Remover estado local de Chezmoi y archivos base manejados — `rm -f ~/.gitconfig ~/.config/chezmoi/chezmoi.toml ~/.ssh/config`. `~/.ssh/known_hosts` no se elimina: las entradas de GitHub las administra `account.sh` y el backup no preserva el archivo completo.
+4. OPCIONAL: remover claves secundarias generadas — puede remover `~/.ssh/id_*` (excepto la clave primary) si desea. La clave primary `~/.ssh/id_ed25519` debería conservarse si planea volver a ejecutar bootstrap.
+5. Revertir source y volver a ejecutar bootstrap — `git -C <dev-environment-repo> checkout dotfiles/ scripts/` (o `git restore`) y volver a ejecutar `bash bootstrap.sh` o `curl ... | bash` según el flujo de instalación.
 
 ## Próximos pasos
 

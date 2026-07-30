@@ -65,11 +65,11 @@ cuenta principal explícitamente:
 bash scripts/account.sh setup-primary
 ```
 
-Para verificar una clave ya registrada, defina `GITHUB_PRIMARY_LOGIN` (o
-`data.github_login` en `~/.config/chezmoi/chezmoi.toml`) y ejecute:
+Para verificar una clave ya registrada, defina `GITHUB_PRIMARY_USERNAME`
+y ejecute:
 
 ```bash
-bash scripts/account.sh verify-primary
+bash scripts/account.sh verify primary
 ```
 
 ## chezmoi apply — file already exists
