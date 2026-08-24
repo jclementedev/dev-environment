@@ -21,7 +21,31 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SSH_DIR="$HOME/.ssh"
 readonly GIT_ACCOUNTS_DIR="$HOME/.config/git/accounts"
 readonly ROUTING_FILE="$HOME/.config/git/accounts-routing.gitconfig"
-readonly PRIMARY_KEY="$SSH_DIR/id_ed25519"
+PRIMARY_KEY="$SSH_DIR/id_ed25519"
+
+chezmoi_data_value() {
+    local key="$1"
+
+    command -v chezmoi >/dev/null 2>&1 || return 0
+    chezmoi execute-template --source "$SCRIPT_DIR/../dotfiles" \
+        "{{ index . \"$key\" | default \"\" }}" 2>/dev/null || true
+}
+
+load_primary_config() {
+    local configured_key
+
+    GITHUB_PRIMARY_EMAIL="${GITHUB_PRIMARY_EMAIL:-$(chezmoi_data_value git_user_email)}"
+    GITHUB_PRIMARY_USERNAME="${GITHUB_PRIMARY_USERNAME:-$(chezmoi_data_value github_login)}"
+    configured_key="$(chezmoi_data_value primary_ssh_key)"
+
+    if [ -n "$configured_key" ]; then
+        if [[ "$configured_key" = /* ]]; then
+            PRIMARY_KEY="$configured_key"
+        else
+            PRIMARY_KEY="$SSH_DIR/$configured_key"
+        fi
+    fi
+}
 
 # === CLI ===
 
@@ -233,10 +257,6 @@ cmd_setup_primary() {
     [ -n "$email" ] || die "GITHUB_PRIMARY_EMAIL no definido"
     validate_email "$email"
 
-    local username="${GITHUB_PRIMARY_USERNAME:-}"
-    [ -n "$username" ] || die "GITHUB_PRIMARY_USERNAME no definido"
-    validate_github_username "$username"
-
     ensure_ssh_key "$PRIMARY_KEY" "$email"
     show_primary_key
 
@@ -249,6 +269,10 @@ cmd_setup_primary() {
     read -r -p "¿Ya agregaste la clave a GitHub y deseas verificarla? [s/N]: " response </dev/tty
     case "$response" in
         s|S|si|SI|sí|Sí|y|Y|yes|YES)
+            local username="${GITHUB_PRIMARY_USERNAME:-}"
+            [ -n "$username" ] \
+                || die "github_login no definido en Chezmoi ni GITHUB_PRIMARY_USERNAME en el entorno"
+            validate_github_username "$username"
             verify_account "primary" "$username" "$PRIMARY_KEY"
             ;;
         *)
@@ -372,6 +396,8 @@ cmd_add() {
 }
 
 main() {
+    load_primary_config
+
     if [ $# -lt 1 ]; then
         usage >&2
         exit 2

@@ -68,6 +68,24 @@ run_account() {
   [[ "$output" == *"ssh-ed25519"* ]]
 }
 
+@test "setup-primary usa los datos de Chezmoi sin variables de entorno" {
+  cat > "$TEST_BIN/chezmoi" <<'EOF'
+#!/bin/sh
+case "$*" in
+  *git_user_email*) printf '%s' 'chezmoi@example.test' ;;
+  *github_login*) printf '%s' 'chezmoi-user' ;;
+  *primary_ssh_key*) printf '%s' "$HOME/.ssh/id_ed25519" ;;
+esac
+EOF
+  chmod +x "$TEST_BIN/chezmoi"
+
+  run run_account bash "$REPO_ROOT/scripts/account.sh" setup-primary
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ssh-ed25519"* ]]
+  [[ "$output" != *"GITHUB_PRIMARY_EMAIL no definido"* ]]
+}
+
 @test "setup-primary sin clave requiere terminal interactiva" {
   rm -f "$TEST_HOME/.ssh/id_ed25519" "$TEST_HOME/.ssh/id_ed25519.pub"
 
