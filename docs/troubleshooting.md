@@ -65,8 +65,8 @@ cuenta principal explícitamente:
 bash scripts/account.sh setup-primary
 ```
 
-Para verificar una clave ya registrada, defina `GITHUB_PRIMARY_USERNAME`
-y ejecute:
+Para verificar una clave ya registrada, ejecute; no es necesario indicar el
+usuario de GitHub:
 
 ```bash
 bash scripts/account.sh verify primary

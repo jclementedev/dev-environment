@@ -20,8 +20,7 @@
 Más las propias del source bajo `[data]` (por ejemplo, `.git_user_email`).
 La instalación crea o completa `git_user_name`, `git_user_email` y
 `primary_ssh_key` en `~/.config/chezmoi/chezmoi.toml`, sin sobrescribir los
-valores ni la configuración existentes. `github_login` es opcional y solo se
-consulta al verificar la cuenta principal con `account.sh`.
+valores ni la configuración existentes.
 
 ## Override por máquina
 

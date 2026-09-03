@@ -59,7 +59,6 @@ run_account() {
 
 @test "setup-primary reutiliza clave existente y muestra pública" {
   run run_account GITHUB_PRIMARY_EMAIL="user@example.test" \
-    GITHUB_PRIMARY_USERNAME="user" \
     bash "$REPO_ROOT/scripts/account.sh" setup-primary
 
   [ "$status" -eq 0 ]
@@ -73,7 +72,6 @@ run_account() {
 #!/bin/sh
 case "$*" in
   *git_user_email*) printf '%s' 'chezmoi@example.test' ;;
-  *github_login*) printf '%s' 'chezmoi-user' ;;
   *primary_ssh_key*) printf '%s' "$HOME/.ssh/id_ed25519" ;;
 esac
 EOF
@@ -98,8 +96,7 @@ EOF
 }
 
 @test "verify primary autentica con la clave primaria" {
-  run run_account GITHUB_PRIMARY_USERNAME="acme" \
-    SSH_EXPECTED_KEY="$TEST_HOME/.ssh/id_ed25519" \
+  run run_account SSH_EXPECTED_KEY="$TEST_HOME/.ssh/id_ed25519" \
     bash "$REPO_ROOT/scripts/account.sh" verify primary
 
   [ "$status" -eq 0 ]
@@ -108,8 +105,7 @@ EOF
 @test "verify primary no requiere include de routing" {
   rm -f "$TEST_HOME/.gitconfig"
 
-  run run_account GITHUB_PRIMARY_USERNAME="acme" \
-    SSH_EXPECTED_KEY="$TEST_HOME/.ssh/id_ed25519" \
+  run run_account SSH_EXPECTED_KEY="$TEST_HOME/.ssh/id_ed25519" \
     bash "$REPO_ROOT/scripts/account.sh" verify primary
 
   [ "$status" -eq 0 ]

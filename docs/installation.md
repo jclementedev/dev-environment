@@ -123,14 +123,12 @@ tenga efecto.
 | `BOOTSTRAP_GIT_USER_NAME` | Nombre Git usado al crear por primera vez `~/.config/chezmoi/chezmoi.toml` sin interacción. |
 | `BOOTSTRAP_GIT_USER_EMAIL` | Email Git usado al crear por primera vez la configuración de Chezmoi sin interacción. |
 | `BOOTSTRAP_SSH_KEY_PATH` | Ruta a la clave SSH principal almacenada como `data.primary_ssh_key` al crear la configuración de Chezmoi. |
-| `GITHUB_PRIMARY_NAME` | Reemplaza `data.git_user_name` al registrar la cuenta GitHub principal. |
-| `GITHUB_PRIMARY_EMAIL` | Reemplaza `data.git_user_email` al registrar la cuenta GitHub principal. |
-| `GITHUB_PRIMARY_USERNAME` | Username de GitHub esperado al verificar la cuenta GitHub principal. |
+| `GITHUB_PRIMARY_EMAIL` | Reemplaza `data.git_user_email` al crear la clave SSH principal. |
 
 ## Configurar GitHub después de instalar
 
-La cuenta GitHub principal es opcional y se configura explícitamente después de
-la instalación base:
+La cuenta GitHub principal se configura explícitamente después de la
+instalación base:
 
 ```bash
 bash scripts/account.sh setup-primary
@@ -161,15 +159,17 @@ Los cuatro flags son requeridos:
 | ------------------- | ---------------------------------------------------------- |
 | `--name`            | Nombre para mostrar en la identidad Git de la cuenta       |
 | `--email`           | Dirección de email de GitHub para la cuenta                |
-| `--github-username` | Username público de GitHub para verificar el saludo SSH    |
+| `--github-username` | Usuario público de GitHub para verificar la conexión SSH   |
 | `--scope`           | Prefijo de path absoluto para routing basado en gitdir (nunca se crea ni toca) |
 
 La clave SSH se genera automáticamente en `~/.ssh/id_ed25519_<id>` (o se reutiliza
 si ya existe) y la ruta se incrusta en el fragmento via `core.sshCommand`. El
 script rechaza scopes duplicados y no modifica cuentas existentes.
 
-La verificación primaria requiere el username esperado mediante
-`GITHUB_PRIMARY_USERNAME`. No se utiliza ningún archivo de estado JSON.
+La verificación primaria comprueba que GitHub acepte la clave, sin requerir el
+usuario de la cuenta. Cada cuenta secundaria conserva su propio usuario en su
+fragmento Git para comprobar además que se esté usando la cuenta correcta. No
+se utiliza ningún archivo de estado JSON.
 
 ## Claves de host SSH de GitHub
 

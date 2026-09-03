@@ -35,7 +35,6 @@ load_primary_config() {
     local configured_key
 
     GITHUB_PRIMARY_EMAIL="${GITHUB_PRIMARY_EMAIL:-$(chezmoi_data_value git_user_email)}"
-    GITHUB_PRIMARY_USERNAME="${GITHUB_PRIMARY_USERNAME:-$(chezmoi_data_value github_login)}"
     configured_key="$(chezmoi_data_value primary_ssh_key)"
 
     if [ -n "$configured_key" ]; then
@@ -68,7 +67,7 @@ Comandos:
 Opciones requeridas para add:
   --name            Nombre para commits Git
   --email           Email de la cuenta
-  --github-username Username de GitHub
+  --github-username Usuario de GitHub
   --scope           Directorio base para routing (ruta absoluta)
 
 Defaults para add:
@@ -119,7 +118,7 @@ validate_email() {
 validate_github_username() {
     local username="$1"
     [[ "$username" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]] \
-        || die "github username inválido '$username'"
+        || die "usuario de GitHub inválido '$username'"
 }
 
 normalize_scope() {
@@ -231,7 +230,12 @@ verify_account() {
         -o ConnectTimeout=15 \
         -T git@github.com 2>&1) || true
 
-    local pattern="Hi[[:space:]]+${expected_username}![[:space:]]+You've[[:space:]]+successfully"
+    local pattern
+    if [ -n "$expected_username" ]; then
+        pattern="Hi[[:space:]]+${expected_username}![[:space:]]+You've[[:space:]]+successfully"
+    else
+        pattern="Hi[[:space:]]+[^!]+![[:space:]]+You've[[:space:]]+successfully"
+    fi
     if [[ "$ssh_output" =~ $pattern ]]; then
         log_info "account.sh: '$label' verificada correctamente"
         printf '%s\n' "$ssh_output"
@@ -254,7 +258,8 @@ show_primary_key() {
 
 cmd_setup_primary() {
     local email="${GITHUB_PRIMARY_EMAIL:-}"
-    [ -n "$email" ] || die "GITHUB_PRIMARY_EMAIL no definido"
+    [ -n "$email" ] \
+        || die "falta el correo de Git; vuelve a ejecutar install.sh para guardarlo"
     validate_email "$email"
 
     ensure_ssh_key "$PRIMARY_KEY" "$email"
@@ -269,11 +274,7 @@ cmd_setup_primary() {
     read -r -p "¿Ya agregaste la clave a GitHub y deseas verificarla? [s/N]: " response </dev/tty
     case "$response" in
         s|S|si|SI|sí|Sí|y|Y|yes|YES)
-            local username="${GITHUB_PRIMARY_USERNAME:-}"
-            [ -n "$username" ] \
-                || die "github_login no definido en Chezmoi ni GITHUB_PRIMARY_USERNAME en el entorno"
-            validate_github_username "$username"
-            verify_account "primary" "$username" "$PRIMARY_KEY"
+            verify_account "primary" "" "$PRIMARY_KEY"
             ;;
         *)
             log_info "account.sh: verificación omitida"
@@ -287,10 +288,7 @@ cmd_verify() {
     [ -n "$id" ] || die "verify requiere un id"
 
     if [ "$id" = "primary" ]; then
-        local username="${GITHUB_PRIMARY_USERNAME:-}"
-        [ -n "$username" ] || die "GITHUB_PRIMARY_USERNAME no definido"
-        validate_github_username "$username"
-        verify_account "primary" "$username" "$PRIMARY_KEY"
+        verify_account "primary" "" "$PRIMARY_KEY"
         return 0
     fi
 

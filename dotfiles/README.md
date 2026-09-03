@@ -17,10 +17,7 @@ Fuente de configuración de [chezmoi](https://chezmoi.io), aplicada por
 `~/.config/chezmoi/chezmoi.toml` contiene los datos específicos de cada máquina.
 `install.sh` crea o completa los valores faltantes de `git_user_name`,
 `git_user_email` y `primary_ssh_key`, sin sobrescribir los valores ni la
-configuración existentes.
-
-`github_login` es opcional y se utiliza únicamente por `account.sh` para
-verificar la cuenta principal. Consulta `docs/installation.md`.
+configuración existentes. Consulta `docs/installation.md`.
 
 ## Agregar un dotfile
 
